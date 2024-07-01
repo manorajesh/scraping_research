@@ -17,6 +17,9 @@ class IndeedScraper:
         self.browser = self.init_browser()
         self.browser.get(self.url)
 
+        if '<body>Forbidden</body>' in self.browser.page_source:
+            raise Exception("IP address has been blocked by Indeed. Try again later.")
+
     def init_browser(self):
         options = Options()
         options.set_preference("general.useragent.override", self.get_random_user_agent())
