@@ -1,13 +1,19 @@
-from bs4 import BeautifulSoup
-import requests
+from selenium import webdriver
 
-url = 'https://www.indeed.com/jobs?q=&l=El+Segundo%2C+CA&radius=10&start=0&vjk=e531c26c96d74ed8'
-response = requests.get(url)
+url = 'https://www.indeed.com/jobs?q=&l=El+Segundo%2C+CA&radius=10&advn=6787486936730117&sort=date&vjk=0b710fbedcd006ce'
+browser = webdriver.Firefox()
+browser.get(url)
 
-print(response.status_code)
+assert 'El Segundo, CA' in browser.title
 
-soup = BeautifulSoup(response.text, 'html.parser')
+div = browser.find_element('id', 'mosaic-provider-jobcards')
+ul = div.find_element('tag name', 'ul')
+lis = ul.find_elements('tag name', 'li')
 
-results = soup.find(id='mosaic-provider-jobcards')
-
-print(results.prettify())
+for li in lis:
+    try:
+        title = li.find_element('tag name', 'span').text
+        if title != '':
+            print(title)
+    except Exception as e:
+        title = 'N/A'
