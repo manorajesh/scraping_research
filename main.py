@@ -73,10 +73,10 @@ class IndeedScraper:
                 title = title_element.text if title_element else 'N/A'
 
                 # placeholders
-                industry = "Industry info not available"
-                responsibilities = "Responsibilities info not available"
-                qualifications = "Qualifications info not available"
-                other = "Other info not available"
+                industry = "N/A"
+                responsibilities = "N/A"
+                qualifications = "N/A"
+                other = "N/A"
 
                 job_result = JobResult(
                     platform='Indeed',
