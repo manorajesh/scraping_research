@@ -6,6 +6,19 @@ from selenium.webdriver.firefox.options import Options
 from urllib.parse import quote_plus
 from fake_useragent import UserAgent
 
+class JobResult:
+    def __init__(self, platform, title, industry, responsibilities, qualifications, other):
+        self.platform = platform
+        self.title = title
+        self.industry = industry
+        self.responsibilities = responsibilities
+        self.qualifications = qualifications
+        self.other = other
+
+    def __repr__(self):
+        return f"JobResult(platform={self.platform}, title={self.title}, industry={self.industry})"
+
+
 class IndeedScraper:
     def __init__(self, radius=10, location='El Segundo, CA', start=0, logger=None):
         self.logger = logger or logging.getLogger(__name__)
@@ -42,34 +55,51 @@ class IndeedScraper:
         self.url = f'https://www.indeed.com/jobs?q=&l={quote_plus(self.location)}&radius={self.radius}&sort=date&start={self.start}'
         self.logger.info(f"Assembled URL: {self.url}")
 
-    def get_jobs(self) -> None:
+    def get_jobs(self) -> list:
+        job_results = []
         self.random_delay()
         try:
             div = self.browser.find_element('id', 'mosaic-provider-jobcards')
             lis = div.find_elements('tag name', 'li')
         except Exception as e:
             self.logger.error(f"Error: {e}")
-            return
+            return job_results
 
-        # Get the title of each job in list
+        # Get job info
         for li in lis:
             self.random_delay()
             try:
-                title = li.find_element('tag name', 'span').text
-                if title != '':
-                    print(title)
+                title_element = li.find_element('tag name', 'span')
+                title = title_element.text if title_element else 'N/A'
+
+                # placeholders
+                industry = "Industry info not available"
+                responsibilities = "Responsibilities info not available"
+                qualifications = "Qualifications info not available"
+                other = "Other info not available"
+
+                job_result = JobResult(
+                    platform='Indeed',
+                    title=title,
+                    industry=industry,
+                    responsibilities=responsibilities,
+                    qualifications=qualifications,
+                    other=other
+                )
+                job_results.append(job_result)
             except Exception as e:
                 self.logger.error(f"Error: {e}")
-                title = 'N/A'
 
-        self.next_page()
+        self.logger.info(f"Found {len(job_results)} jobs")
+        self.next_page(job_results)
+        return job_results
 
-    def next_page(self):
-        self.logger.info(f"Scraped {self.start} jobs. Next page.")
+    def next_page(self, job_results):
+        self.logger.info(f"Next page.")
         self.start += 10
         self.assemble_url()
         self.browser.get(self.url)
-        self.get_jobs()
+        job_results.extend(self.get_jobs())
 
     def close_browser(self):
         self.logger.info("Closing browser")
@@ -79,5 +109,7 @@ logger = logging.getLogger(__name__)
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     scraper = IndeedScraper(logger=logger)
-    scraper.get_jobs()
+    jobs = scraper.get_jobs()
     scraper.close_browser()
+    for job in jobs:
+        print(job)
