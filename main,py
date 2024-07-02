@@ -1,6 +1,7 @@
 from base_class import BaseScraper, JobResult
 from urllib.parse import quote_plus
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 import logging
 
 class RadiantScraper(BaseScraper):
@@ -46,7 +47,7 @@ class RadiantScraper(BaseScraper):
                     industry="N/A",
                     responsibilities=responsibilities,
                     qualifications=all_qualifications,
-                    other="N/A"
+                    other=["N/A"]
                 )
                 job_results.append(job_result)
 
@@ -59,16 +60,21 @@ class RadiantScraper(BaseScraper):
         self.logger.info(f"Found {len(job_results)} jobs")
         return job_results
     
-    def extract_children_span_text(self, element):
+    def extract_children_span_text(self, element: WebElement):
         text = []
         try:
             children = element.find_elements(By.TAG_NAME, 'span')
+            if not children:
+                children = element.find_elements(By.TAG_NAME, 'li')
+
             for child in children:
                 text.append(child.text)
-            return "\n".join(text)
+            return [text for text in text if text != '']
         except Exception as e:
             self.logger.error(f"Span parsing error: {e}")
             return "N/A"
+
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

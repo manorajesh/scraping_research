@@ -16,8 +16,11 @@ class JobResult:
         self.qualifications = qualifications
         self.other = other
 
+    def as_csv(self):
+        return f"{self.company},{self.title},{self.industry},{'--'.join(self.responsibilities)},{'--'.join(self.qualifications)},{'--'.join(self.other)}"
+
     def __repr__(self):
-        return f"JobResult(company={self.company}, title={self.title}, industry={self.industry})"
+        return f"{self.company} - {self.title} - {self.industry}: {len(self.responsibilities)} responsibilities, {len(self.qualifications)} qualifications, {len(self.other)} other"
 
 class BaseScraper(ABC):
     def __init__(self, base_url, radius=10, location='El Segundo, CA', start=0, logger=None):
