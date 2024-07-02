@@ -8,8 +8,8 @@ from fake_useragent import UserAgent
 from abc import ABC, abstractmethod
 
 class JobResult:
-    def __init__(self, platform, title, industry, responsibilities, qualifications, other):
-        self.platform = platform
+    def __init__(self, company: str, title: str, industry: str, responsibilities: list[str], qualifications: list[str], other: list[str]):
+        self.company = company
         self.title = title
         self.industry = industry
         self.responsibilities = responsibilities
@@ -17,7 +17,7 @@ class JobResult:
         self.other = other
 
     def __repr__(self):
-        return f"JobResult(platform={self.platform}, title={self.title}, industry={self.industry})"
+        return f"JobResult(company={self.company}, title={self.title}, industry={self.industry})"
 
 class BaseScraper(ABC):
     def __init__(self, base_url, radius=10, location='El Segundo, CA', start=0, logger=None):
@@ -77,4 +77,3 @@ class BaseScraper(ABC):
     def close_browser(self):
         self.logger.info("Closing browser")
         self.browser.quit()
-
