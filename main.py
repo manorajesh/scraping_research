@@ -4,8 +4,8 @@ import logging
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
-from urllib.parse import quote_plus
 from fake_useragent import UserAgent
+from abc import ABC, abstractmethod
 
 class JobResult:
     def __init__(self, platform, title, industry, responsibilities, qualifications, other):
@@ -19,20 +19,17 @@ class JobResult:
     def __repr__(self):
         return f"JobResult(platform={self.platform}, title={self.title}, industry={self.industry})"
 
-
-class IndeedScraper:
-    def __init__(self, radius=10, location='El Segundo, CA', start=0, logger=None):
+class BaseScraper(ABC):
+    def __init__(self, base_url, radius=10, location='El Segundo, CA', start=0, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         self.radius = radius
         self.location = location
         self.start = start
         self.user_agent = UserAgent()
+        self.base_url = base_url
         self.assemble_url()
         self.browser = self.init_browser()
         self.browser.get(self.url)
-
-        if '<body>Forbidden</body>' in self.browser.page_source:
-            raise Exception("IP address has been blocked by Indeed. Try again later.")
 
     def init_browser(self):
         options = Options()
@@ -55,78 +52,29 @@ class IndeedScraper:
     def act_human(self):
         self.logger.info("Simulating human interaction")
         actions = ActionChains(self.browser)
-        # Random mouse movements
         for _ in range(random.randint(1, 5)):
             x_offset = random.randint(0, 100)
             y_offset = random.randint(0, 100)
             actions.move_by_offset(x_offset, y_offset).perform()
             self.random_delay(0.1, 0.3)
         
-        # Random scrolling
         scroll_script = "window.scrollBy({}, {})".format(random.randint(-300, 300), random.randint(-300, 300))
         self.browser.execute_script(scroll_script)
         self.random_delay(0.5, 1)
 
+    @abstractmethod
     def assemble_url(self):
-        self.url = f'https://www.indeed.com/jobs?q=&l={quote_plus(self.location)}&radius={self.radius}&sort=date&start={self.start}'
-        self.logger.info(f"Assembled URL: {self.url}")
+        pass
 
-    def get_jobs(self) -> list:
-        job_results = []
-        self.random_delay()
-        self.act_human()
-        try:
-            div = self.browser.find_element('id', 'mosaic-provider-jobcards')
-            lis = div.find_elements('tag name', 'li')
-        except Exception as e:
-            self.logger.error(f"Error: {e}")
-            return job_results
+    @abstractmethod
+    def get_jobs(self):
+        pass
 
-        # Get job info
-        for li in lis:
-            self.random_delay(0.1, 0.5)
-            try:
-                title_element = li.find_element('tag name', 'span')
-                title = title_element.text if title_element else 'N/A'
-
-                # placeholders
-                industry = "N/A"
-                responsibilities = "N/A"
-                qualifications = "N/A"
-                other = "N/A"
-
-                job_result = JobResult(
-                    platform='Indeed',
-                    title=title,
-                    industry=industry,
-                    responsibilities=responsibilities,
-                    qualifications=qualifications,
-                    other=other
-                )
-                job_results.append(job_result)
-            except Exception as e:
-                self.logger.error(f"Error: {e}")
-
-        self.logger.info(f"Found {len(job_results)} jobs")
-        self.next_page(job_results)
-        return job_results
-
+    @abstractmethod
     def next_page(self, job_results):
-        self.logger.info(f"Next page.")
-        self.start += 10
-        self.assemble_url()
-        self.browser.get(self.url)
-        job_results.extend(self.get_jobs())
+        pass
 
     def close_browser(self):
         self.logger.info("Closing browser")
         self.browser.quit()
 
-logger = logging.getLogger(__name__)
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    scraper = IndeedScraper(logger=logger)
-    jobs = scraper.get_jobs()
-    scraper.close_browser()
-    for job in jobs:
-        print(job)
