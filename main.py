@@ -3,6 +3,7 @@ import random
 import logging
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
 from urllib.parse import quote_plus
 from fake_useragent import UserAgent
 
@@ -51,6 +52,21 @@ class IndeedScraper:
         self.logger.info(f"Sleeping for {min_seconds} to {max_seconds} seconds")
         time.sleep(random.uniform(min_seconds, max_seconds))
 
+    def act_human(self):
+        self.logger.info("Simulating human interaction")
+        actions = ActionChains(self.browser)
+        # Random mouse movements
+        for _ in range(random.randint(1, 5)):
+            x_offset = random.randint(0, 100)
+            y_offset = random.randint(0, 100)
+            actions.move_by_offset(x_offset, y_offset).perform()
+            self.random_delay(0.1, 0.3)
+        
+        # Random scrolling
+        scroll_script = "window.scrollBy({}, {})".format(random.randint(-300, 300), random.randint(-300, 300))
+        self.browser.execute_script(scroll_script)
+        self.random_delay(0.5, 1)
+
     def assemble_url(self):
         self.url = f'https://www.indeed.com/jobs?q=&l={quote_plus(self.location)}&radius={self.radius}&sort=date&start={self.start}'
         self.logger.info(f"Assembled URL: {self.url}")
@@ -58,6 +74,7 @@ class IndeedScraper:
     def get_jobs(self) -> list:
         job_results = []
         self.random_delay()
+        self.act_human()
         try:
             div = self.browser.find_element('id', 'mosaic-provider-jobcards')
             lis = div.find_elements('tag name', 'li')
@@ -67,7 +84,7 @@ class IndeedScraper:
 
         # Get job info
         for li in lis:
-            self.random_delay()
+            self.random_delay(0.1, 0.5)
             try:
                 title_element = li.find_element('tag name', 'span')
                 title = title_element.text if title_element else 'N/A'
