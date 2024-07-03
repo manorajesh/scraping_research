@@ -9,40 +9,68 @@ from abc import ABC, abstractmethod
 import ollama
 import csv
 
+
 class JobResult:
-    def __init__(self, company: str, title: str, industry: str, responsibilities: list[str], qualifications: list[str], other: list[str]):
+    def __init__(
+        self,
+        company: str,
+        title: str,
+        industry: str,
+        responsibilities: list[str],
+        qualifications: list[str],
+        location: str,
+        other: list[str],
+    ):
         self.company = company
         self.title = title
         self.industry = industry
         self.responsibilities = responsibilities
         self.qualifications = qualifications
+        self.location = location
         self.other = other
 
-    def from_llm_output(title: str, company: str, llm_output: str) -> 'JobResult':
+    def from_llm_output(
+        title: str, company: str, location: str, llm_output: str
+    ) -> "JobResult":
         data = BaseScraper.parse_llm_output(llm_output)
-        return JobResult(company=company, title=title, industry=data["industry"], responsibilities=data["responsibilities"], qualifications=data["qualifications"], other=['N/A'])
+        return JobResult(
+            company=company,
+            title=title,
+            industry=data["industry"],
+            responsibilities=data["responsibilities"],
+            qualifications=data["qualifications"],
+            location=location,
+            other=["N/A"],
+        )
 
     def as_csv(self, filename: str):
         # Convert lists to bulleted strings
         def list_to_bullets(lst):
-            return "\n".join([f"• {item}" for item in lst if item != '' and item != '.'])
+            return "\n".join(
+                [f"• {item}" for item in lst if item != "" and item != "."]
+            )
 
-        with open(filename, 'a', newline='', encoding='utf-8') as csvfile:
+        with open(filename, "a", newline="", encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([
-                self.company,
-                self.title,
-                self.industry,
-                list_to_bullets(self.responsibilities),
-                list_to_bullets(self.qualifications),
-                list_to_bullets(self.other)
-            ])
+            writer.writerow(
+                [
+                    self.company,
+                    self.title,
+                    self.industry,
+                    list_to_bullets(self.responsibilities),
+                    list_to_bullets(self.qualifications),
+                    list_to_bullets(self.other),
+                ]
+            )
 
     def __repr__(self):
         return f"{self.company} - {self.title} - {self.industry}: {len(self.responsibilities)} responsibilities, {len(self.qualifications)} qualifications, {len(self.other)} other"
 
+
 class BaseScraper(ABC):
-    def __init__(self, base_url, radius=10, location='El Segundo, CA', start=0, logger=None):
+    def __init__(
+        self, base_url, radius=10, location="El Segundo, CA", start=0, logger=None
+    ):
         self.logger = logger or logging.getLogger(__name__)
         self.radius = radius
         self.location = location
@@ -55,13 +83,15 @@ class BaseScraper(ABC):
 
     def init_browser(self):
         options = Options()
-        options.set_preference("general.useragent.override", self.get_random_user_agent())
+        options.set_preference(
+            "general.useragent.override", self.get_random_user_agent()
+        )
         self.logger.info("Initializing browser")
         return webdriver.Firefox(options=options)
 
     def get_random_user_agent(self):
         user_agent = self.user_agent.random
-        while 'bot' in user_agent or 'spider' in user_agent:
+        while "bot" in user_agent or "spider" in user_agent:
             user_agent = self.user_agent.random
 
         self.logger.info(f"Using user agent: {user_agent}")
@@ -79,30 +109,30 @@ class BaseScraper(ABC):
             y_offset = random.randint(0, 100)
             actions.move_by_offset(x_offset, y_offset).perform()
             self.random_delay(0.1, 0.3)
-        
-        scroll_script = "window.scrollBy({}, {})".format(random.randint(-300, 300), random.randint(-300, 300))
+
+        scroll_script = "window.scrollBy({}, {})".format(
+            random.randint(-300, 300), random.randint(-300, 300)
+        )
         self.browser.execute_script(scroll_script)
         self.random_delay(0.5, 1)
-    
-    def llm_extract(self, job_listing: str, model='gemma:2b', custom_prompt=None):
-        prompt = 'Can you give me the industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing. Find as many responsibilities and qualifications as it says:'
+
+    def llm_extract(self, job_listing: str, model="gemma:2b", custom_prompt=None):
+        prompt = "Can you give me the industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing. Find as many responsibilities and qualifications as it says:"
         if custom_prompt:
             prompt = custom_prompt
-        
-        self.logger.info(f"Processing job listing with LLM")
-        response = ollama.generate(model=model,  prompt=prompt + job_listing, options={'temperature': 0.2})
 
-        return response['response']
-    
+        self.logger.info(f"Processing job listing with LLM")
+        response = ollama.generate(
+            model=model, prompt=prompt + job_listing, options={"temperature": 0.2}
+        )
+
+        return response["response"]
+
     def parse_llm_output(output: str):
-        data = {
-                "industry": "",
-                "responsibilities": [],
-                "qualifications": []
-            }
-            
+        data = {"industry": "", "responsibilities": [], "qualifications": []}
+
         sections = output.strip().split("\n")
-        
+
         current_section = ""
         for section in sections:
             if section.startswith("**Industry:**"):
@@ -113,8 +143,10 @@ class BaseScraper(ABC):
                 current_section = "qualifications"
             else:
                 if current_section and section != "":
-                    data[current_section].append(section.strip("* ").strip("- ").strip())
-        
+                    data[current_section].append(
+                        section.strip("* ").strip("- ").strip()
+                    )
+
         return data
 
     @abstractmethod
