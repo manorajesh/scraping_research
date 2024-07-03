@@ -4,6 +4,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 import logging
+import re
 
 
 # Greenhouse.io
@@ -40,6 +41,10 @@ class RadiantScraper(BaseScraper):
                 title_element = self.browser.find_element(By.TAG_NAME, "h1")
                 title = title_element.text if title_element else "N/A"
 
+                # Extract location
+                location_element = self.browser.find_element(By.CLASS_NAME, "location")
+                location = location_element.text if location_element else "N/A"
+
                 # Extracting the text content of the sections
                 responsibilities = self.extract_children_span_text(
                     self.browser.find_element(
@@ -66,6 +71,7 @@ class RadiantScraper(BaseScraper):
                     industry="N/A",
                     responsibilities=responsibilities,
                     qualifications=all_qualifications,
+                    location=location,
                     other=["N/A"],
                 )
                 job_results.append(job_result)
@@ -127,6 +133,10 @@ class MakeRainScraper(BaseScraper):
             title_element = self.browser.find_element(By.TAG_NAME, "h2")
             title = title_element.text if title_element else "N/A"
 
+            # Extract location
+            location_element = self.browser.find_element(By.CLASS_NAME, "location")
+            location = location_element.text if location_element else "N/A"
+
             # Extracting the text content of the sections
             # TODO: Fix all of this
 
@@ -169,6 +179,7 @@ class MakeRainScraper(BaseScraper):
                 industry="N/A",
                 responsibilities=responsibilities,
                 qualifications=all_qualifications,
+                location=location,
                 other=["N/A"],
             )
             job_results.append(job_result)
@@ -236,13 +247,18 @@ class LATimesScraper(BaseScraper):
                     title = title_element.text
                     self.logger.error(f"Title not found; trying again...")
 
+            # Extract location
+            location_element = self.browser.find_element(By.CLASS_NAME, "job-location")
+            location = location_element.text if location_element else "N/A"
+            location = "El Segundo, CA" if "El Segundo" in location else location
+
             div = self.browser.find_element(By.CLASS_NAME, "job-posting-content")
             innerText = div.get_attribute("innerText")
 
             extracted = self.llm_extract(innerText)
 
             job_result = JobResult.from_llm_output(
-                title=title, company="LA Times", llm_output=extracted
+                title=title, company="LA Times", location=location, llm_output=extracted
             )
             job_results.append(job_result)
 
@@ -297,6 +313,10 @@ class GoGuardianScraper(BaseScraper):
                     title = title_element.text
                     self.logger.error(f"Title not found; trying again...")
 
+            # Extract location
+            location_element = self.browser.find_element(By.CLASS_NAME, "location")
+            location = location_element.text if location_element else "N/A"
+
             div = self.browser.find_element(By.ID, "content")
             innerText = div.get_attribute("innerText")
 
@@ -304,7 +324,10 @@ class GoGuardianScraper(BaseScraper):
             self.logger.debug(f"Extracted: {extracted}")
 
             job_result = JobResult.from_llm_output(
-                title=title, company="GoGuardian", llm_output=extracted
+                title=title,
+                company="GoGuardian",
+                location=location,
+                llm_output=extracted,
             )
             job_results.append(job_result)
 
@@ -358,6 +381,14 @@ class RadlinkScraper(BaseScraper):
                     title = title_element.text
                     self.logger.error(f"Title not found; trying again...")
 
+            # Extract location
+            match = re.search(r"^(.*?)\s*\((.*?)\)$", title)
+            if match:
+                title = match.group(1)
+                location = match.group(2)
+            else:
+                location = "N/A"
+
             div = self.browser.find_element(By.CLASS_NAME, "job-description")
             innerText = div.get_attribute("innerText")
 
@@ -365,7 +396,7 @@ class RadlinkScraper(BaseScraper):
             self.logger.debug(f"Extracted: {extracted}")
 
             job_result = JobResult.from_llm_output(
-                title=title, company="Radlink", llm_output=extracted
+                title=title, company="Radlink", location=location, llm_output=extracted
             )
             job_results.append(job_result)
 
@@ -418,6 +449,10 @@ class ABLSpaceSystemsScraper(BaseScraper):
                     title = title_element.text
                     self.logger.error(f"Title not found; trying again...")
 
+            # Extract location
+            location_element = self.browser.find_element(By.CLASS_NAME, "location")
+            location = location_element.text if location_element else "N/A"
+
             # Because there is extraneous text
             num_of_divs = 4
             innerText = ""
@@ -434,7 +469,10 @@ class ABLSpaceSystemsScraper(BaseScraper):
             self.logger.debug(f"Extracted: {extracted}")
 
             job_result = JobResult.from_llm_output(
-                title=title, company="abl Space Systems", llm_output=extracted
+                title=title,
+                company="abl Space Systems",
+                location=location,
+                llm_output=extracted,
             )
             job_results.append(job_result)
             self.logger.debug(f"Job: {job_result}")
@@ -451,13 +489,13 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     job_results = []
-    radiantScraper = RadiantScraper(logger=logger)
-    job_results += radiantScraper.get_jobs()
-    radiantScraper.close_browser()
+    # radiantScraper = RadiantScraper(logger=logger)
+    # job_results += radiantScraper.get_jobs()
+    # radiantScraper.close_browser()
 
-    makeRainScraper = MakeRainScraper(logger=logger)
-    job_results += makeRainScraper.get_jobs()
-    makeRainScraper.close_browser()
+    # makeRainScraper = MakeRainScraper(logger=logger)
+    # job_results += makeRainScraper.get_jobs()
+    # makeRainScraper.close_browser()
 
     laTimesScraper = LATimesScraper(logger=logger)
     job_results += laTimesScraper.get_jobs()

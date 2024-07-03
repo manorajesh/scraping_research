@@ -47,7 +47,11 @@ class JobResult:
         # Convert lists to bulleted strings
         def list_to_bullets(lst):
             return "\n".join(
-                [f"• {item}" for item in lst if item != "" and item != "."]
+                [
+                    f"• {item}"
+                    for item in lst
+                    if item != "" and item != "." and item != " "
+                ]
             )
 
         with open(filename, "a", newline="", encoding="utf-8") as csvfile:
@@ -59,12 +63,13 @@ class JobResult:
                     self.industry,
                     list_to_bullets(self.responsibilities),
                     list_to_bullets(self.qualifications),
+                    self.location,
                     list_to_bullets(self.other),
                 ]
             )
 
     def __repr__(self):
-        return f"{self.company} - {self.title} - {self.industry}: {len(self.responsibilities)} responsibilities, {len(self.qualifications)} qualifications, {len(self.other)} other"
+        return f"{self.company} - {self.title} - {self.industry} @ {self.location}: {len(self.responsibilities)} responsibilities, {len(self.qualifications)} qualifications, {len(self.other)} other"
 
 
 class BaseScraper(ABC):
