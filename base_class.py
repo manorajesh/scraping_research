@@ -7,6 +7,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from fake_useragent import UserAgent
 from abc import ABC, abstractmethod
 import ollama
+import csv
 
 class JobResult:
     def __init__(self, company: str, title: str, industry: str, responsibilities: list[str], qualifications: list[str], other: list[str]):
@@ -21,8 +22,21 @@ class JobResult:
         data = BaseScraper.parse_llm_output(llm_output)
         return JobResult(company=company, title=title, industry=data["industry"], responsibilities=data["responsibilities"], qualifications=data["qualifications"], other=['N/A'])
 
-    def as_csv(self):
-        return f"{self.company},{self.title},{self.industry},{'--'.join(self.responsibilities)},{'--'.join(self.qualifications)},{'--'.join(self.other)}"
+    def as_csv(self, filename: str):
+        # Convert lists to bulleted strings
+        def list_to_bullets(lst):
+            return "\n".join([f"• {item}" for item in lst if item != '' and item != '.'])
+
+        with open(filename, 'a', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([
+                self.company,
+                self.title,
+                self.industry,
+                list_to_bullets(self.responsibilities),
+                list_to_bullets(self.qualifications),
+                list_to_bullets(self.other)
+            ])
 
     def __repr__(self):
         return f"{self.company} - {self.title} - {self.industry}: {len(self.responsibilities)} responsibilities, {len(self.qualifications)} qualifications, {len(self.other)} other"
