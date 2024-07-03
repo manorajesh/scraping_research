@@ -6,6 +6,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from fake_useragent import UserAgent
 from abc import ABC, abstractmethod
+import ollama
 
 class JobResult:
     def __init__(self, company: str, title: str, industry: str, responsibilities: list[str], qualifications: list[str], other: list[str]):
@@ -15,6 +16,10 @@ class JobResult:
         self.responsibilities = responsibilities
         self.qualifications = qualifications
         self.other = other
+
+    def from_llm_output(title: str, company: str, llm_output: str) -> 'JobResult':
+        data = BaseScraper.parse_llm_output(llm_output)
+        return JobResult(company=company, title=title, industry=data["industry"], responsibilities=data["responsibilities"], qualifications=data["qualifications"], other=['N/A'])
 
     def as_csv(self):
         return f"{self.company},{self.title},{self.industry},{'--'.join(self.responsibilities)},{'--'.join(self.qualifications)},{'--'.join(self.other)}"
@@ -64,6 +69,39 @@ class BaseScraper(ABC):
         scroll_script = "window.scrollBy({}, {})".format(random.randint(-300, 300), random.randint(-300, 300))
         self.browser.execute_script(scroll_script)
         self.random_delay(0.5, 1)
+    
+    def llm_extract(self, job_listing: str, model='gemma:2b', custom_prompt=None):
+        prompt = 'Can you give me the industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing. Find as many responsibilities and qualifications as it says:'
+        if custom_prompt:
+            prompt = custom_prompt
+        
+        self.logger.info(f"Processing job listing with LLM")
+        response = ollama.generate(model=model,  prompt=prompt + job_listing, options={'temperature': 0.2})
+
+        return response['response']
+    
+    def parse_llm_output(output: str):
+        data = {
+                "industry": "",
+                "responsibilities": [],
+                "qualifications": []
+            }
+            
+        sections = output.strip().split("\n")
+        
+        current_section = ""
+        for section in sections:
+            if section.startswith("**Industry:**"):
+                data["industry"] = section.replace("**Industry:**", "").strip()
+            elif section.startswith("**Responsibilities:**"):
+                current_section = "responsibilities"
+            elif section.startswith("**Qualifications:**"):
+                current_section = "qualifications"
+            else:
+                if current_section and section != "":
+                    data[current_section].append(section.strip("* ").strip())
+        
+        return data
 
     @abstractmethod
     def assemble_url(self):

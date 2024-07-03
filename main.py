@@ -1,5 +1,6 @@
 from base_class import BaseScraper, JobResult
 from urllib.parse import quote_plus
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 import logging
@@ -255,54 +256,41 @@ class LATimesScraper(BaseScraper):
         job_results = []
         try:
             links = self.browser.find_elements(By.TAG_NAME, 'a')
-            job_links = [link.get_attribute('href') for link in links if 'Posting' in link.get_attribute('href')]
+            
+            job_links = []
+            for link in links:
+                href = link.get_attribute('href')
+                if 'Posting/View' in href and href not in job_links:
+                    job_links.append(href)
         except Exception as e:
             self.logger.error(f"Sub link Error: {e}")
             return job_results
 
+        self.logger.info(f"{job_links}")
+        self.logger.info(f"Found {len(job_links)} jobs")
         for href in job_links:
-            self.random_delay(2, 2.5)
+            self.logger.info(f"Opening job: {href}")
             self.browser.get(href)
             print(self.browser.current_url)
 
-            title_element = self.browser.find_element(By.TAG_NAME, 'h1')
-            title = title_element.text if title_element else "N/A"
-
-            # Extracting the text content of the sections
-            # TODO: Fix all of this
-
-            responsibilities = []
             try:
-                responsibilities = self.extract_children_span_text(self.browser.find_element(By.XPATH, '/html/body/div[1]/div/div[1]/main/div/div[1]/div[2]/div[5]/ul[1]'))
-            except Exception as e:
-                self.logger.error(f"responsibilities Error: {e}")
+                title_element = self.browser.find_element(By.TAG_NAME, 'h1')
+                title = title_element.text
+            except NoSuchElementException:
+                while title_element is None:
+                    self.random_delay(2, 2.5)
+                    title_element = self.browser.find_element(By.TAG_NAME, 'h1')
+                    title = title_element.text
+                    self.logger.error(f"Title not found; trying again...")
 
-            qualifications = []
-            try:
-                qualifications = self.browser.find_element(By.XPATH, '/html/body/div[1]/div/div[1]/main/div/div[1]/div[2]/div[5]/ul[2]')
-            except Exception as e:
-                self.logger.error(f"qualifications Error: {e}")
+            div = self.browser.find_element(By.CLASS_NAME, 'job-posting-content')
+            innerText = div.get_attribute('innerText')
 
-            desired_qualifications = []
-            try:
-                desired_qualifications = self.extract_children_span_text(self.browser.find_element(By.XPATH, '/html/body/div[1]/div/div[1]/main/div/div[1]/div[2]/div[5]/ul[3]'))
-            except Exception as e:
-                self.logger.error(f"desired_qualifications Error: {e}")
+            extracted = self.llm_extract(innerText)
 
-            # Combine qualifications and desired qualifications
-            all_qualifications = desired_qualifications + qualifications
-
-            job_result = JobResult(
-                company='LA Times',
-                title=title,
-                industry="N/A",
-                responsibilities=responsibilities,
-                qualifications=all_qualifications,
-                other=["N/A"]
-            )
+            job_result = JobResult.from_llm_output(title=title, company='LA Times', llm_output=extracted)
             job_results.append(job_result)
 
-            self.act_human()
             # Navigate back to the main jobs page
             self.browser.back()
 
@@ -335,10 +323,6 @@ if __name__ == '__main__':
     # makeRainScraper = MakeRainScraper(logger=logger)
     # job_results += makeRainScraper.get_jobs()
     # makeRainScraper.close_browser()
-
-    # boundaryDigitalScraper = BoundaryDigitalScraper(logger=logger)
-    # job_results += boundaryDigitalScraper.get_jobs()
-    # boundaryDigitalScraper.close_browser()
 
     laTimesScraper = LATimesScraper(logger=logger)
     job_results += laTimesScraper.get_jobs()
