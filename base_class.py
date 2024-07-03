@@ -113,7 +113,7 @@ class BaseScraper(ABC):
                 current_section = "qualifications"
             else:
                 if current_section and section != "":
-                    data[current_section].append(section.strip("* ").strip())
+                    data[current_section].append(section.strip("* ").strip("- ").strip())
         
         return data
 
