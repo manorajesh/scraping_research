@@ -82,7 +82,7 @@ class RadiantScraper(BaseScraper):
             except Exception as e:
                 self.logger.error(f"Error: {e}")
 
-        self.logger.info(f"Found {len(job_results)} jobs")
+        self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
 
     def extract_children_span_text(self, element: WebElement):
@@ -187,7 +187,7 @@ class MakeRainScraper(BaseScraper):
             # Navigate back to the main jobs page
             self.browser.back()
 
-        self.logger.info(f"Found {len(job_results)} jobs")
+        self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
 
     def extract_children_span_text(self, element: WebElement):
@@ -235,7 +235,6 @@ class LATimesScraper(BaseScraper):
         for href in job_links:
             self.logger.info(f"Opening job: {href}")
             self.browser.get(href)
-            print(self.browser.current_url)
 
             try:
                 title_element = self.browser.find_element(By.TAG_NAME, "h1")
@@ -265,7 +264,7 @@ class LATimesScraper(BaseScraper):
             # Navigate back to the main jobs page
             self.browser.back()
 
-        self.logger.info(f"Found {len(job_results)} jobs")
+        self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
 
 
@@ -299,7 +298,6 @@ class GoGuardianScraper(BaseScraper):
         for href in job_links:
             self.logger.info(f"Opening job: {href}")
             self.browser.get(href)
-            print(self.browser.current_url)
 
             try:
                 title_element = self.browser.find_element(By.CLASS_NAME, "app-title")
@@ -334,7 +332,7 @@ class GoGuardianScraper(BaseScraper):
             # Navigate back to the main jobs page
             self.browser.back()
 
-        self.logger.info(f"Found {len(job_results)} jobs")
+        self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
 
 
@@ -367,7 +365,6 @@ class RadlinkScraper(BaseScraper):
         for href in job_links:
             self.logger.info(f"Opening job: {href}")
             self.browser.get(href)
-            print(self.browser.current_url)
 
             try:
                 title_element = self.browser.find_element(By.CLASS_NAME, "job-title")
@@ -403,7 +400,7 @@ class RadlinkScraper(BaseScraper):
             # Navigate back to the main jobs page
             self.browser.back()
 
-        self.logger.info(f"Found {len(job_results)} jobs")
+        self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
 
 
@@ -437,7 +434,6 @@ class ABLSpaceSystemsScraper(BaseScraper):
         for href in job_links:
             self.logger.info(f"Opening job: {href}")
             self.browser.get(href)
-            print(self.browser.current_url)
 
             try:
                 title_element = self.browser.find_element(By.TAG_NAME, "h2")
@@ -480,7 +476,7 @@ class ABLSpaceSystemsScraper(BaseScraper):
             # Navigate back to the main jobs page
             self.browser.back()
 
-        self.logger.info(f"Found {len(job_results)} jobs")
+        self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
 
 
@@ -517,7 +513,6 @@ class MattelScraper(BaseScraper):
         for href in job_links:
             self.logger.info(f"Opening job: {href}")
             self.browser.get(href)
-            print(self.browser.current_url)
 
             try:
                 title_element = self.browser.find_element(
@@ -557,43 +552,146 @@ class MattelScraper(BaseScraper):
             # Navigate back to the main jobs page
             self.browser.back()
 
-        self.logger.info(f"Found {len(job_results)} jobs")
+        self.logger.info(f"Scraped {len(job_results)} jobs")
+        return job_results
+
+
+# Proprietary forwards to Greenhouse.io
+class SpaceXScraper(BaseScraper):
+    def __init__(
+        self,
+        start_at_job=0,
+        max_jobs=10,
+        logger=None,
+    ):
+        self.max_jobs = max_jobs
+        self.start_at_job = start_at_job
+        base_url = "https://www.spacex.com/careers/jobs?location=hawthorne%252C%2520ca"  # TODO: Make location dynamic
+        super().__init__(base_url, logger)
+
+    def assemble_url(self):
+        self.url = "https://www.spacex.com/careers/jobs?location=hawthorne%252C%2520ca"
+        self.logger.info(f"Assembled URL: {self.url}")
+
+    def next_page(self, job_results):
+        # Click the next page button until it doesn't
+        return super().next_page(job_results)
+
+    def get_jobs(self) -> list:
+        self.random_delay(1, 1.5)  # Wait for the page to load
+        job_results = []
+        try:
+            links = self.browser.find_elements(By.TAG_NAME, "a")
+            # job_links = [
+            #     link.get_attribute("href")
+            #     for link in links
+            #     if "boards.greenhouse.io"
+            #     in link.get_attribute("href")  # SpaceX uses Greenhouse.io
+            # ]
+            job_links = []
+            for link in links:
+                href = link.get_attribute("href")
+                if "boards.greenhouse.io" in href and href not in job_links:
+                    job_links.append(href)
+        except Exception as e:
+            self.logger.error(f"Sub link Error: {e}")
+            return job_results
+
+        self.logger.info(f"Found {len(job_links)} jobs")
+        for href in job_links[
+            self.start_at_job : self.max_jobs + self.start_at_job
+        ]:  # Limit the number of jobs
+            self.logger.info(f"Opening job: {href}")
+            self.browser.get(href)
+
+            try:
+                title_element = self.browser.find_element(By.CLASS_NAME, "app-title")
+                title = title_element.text
+            except NoSuchElementException:
+                while title_element is None:
+                    self.random_delay(2, 2.5)
+                    title_element = self.browser.find_element(
+                        By.CLASS_NAME, "app-title"
+                    )
+                    title = title_element.text
+                    self.logger.error(f"Title not found; trying again...")
+
+            # Extract location
+            location_element = self.browser.find_element(By.CLASS_NAME, "location")
+            location = location_element.text if location_element else "N/A"
+
+            # Remove extraneous text
+            div = self.browser.find_element(By.ID, "content")
+            children = div.find_elements(By.CSS_SELECTOR, "p, ul")
+            innerText = ""
+            for child in children[1:-3]:
+                child_text = child.get_attribute("innerText")
+                if "COMPENSATION" in child_text.upper():
+                    break
+                innerText += child_text
+
+            extracted = self.llm_extract(innerText)
+            self.logger.debug(f"Extracted: {extracted}")
+
+            job_result = JobResult.from_llm_output(
+                title=title.title(),
+                company="SpaceX",
+                location=location,
+                llm_output=extracted,
+            )
+            job_results.append(job_result)
+            self.logger.debug(f"Job: {job_result}")
+
+            # Navigate back to the main jobs page
+            self.browser.back()
+
+        self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
+    filename = "csv/jobs.csv"
 
     job_results = []
-    # radiantScraper = RadiantScraper(logger=logger)
-    # job_results += radiantScraper.get_jobs()
-    # radiantScraper.close_browser()
+    try:
+        # radiantScraper = RadiantScraper(logger=logger)
+        # job_results += radiantScraper.get_jobs()
+        # radiantScraper.close_browser()
 
-    # makeRainScraper = MakeRainScraper(logger=logger)
-    # job_results += makeRainScraper.get_jobs()
-    # makeRainScraper.close_browser()
+        # makeRainScraper = MakeRainScraper(logger=logger)
+        # job_results += makeRainScraper.get_jobs()
+        # makeRainScraper.close_browser()
 
-    # laTimesScraper = LATimesScraper(logger=logger)
-    # job_results += laTimesScraper.get_jobs()
-    # laTimesScraper.close_browser()
+        # laTimesScraper = LATimesScraper(logger=logger)
+        # job_results += laTimesScraper.get_jobs()
+        # laTimesScraper.close_browser()
 
-    # goGuardianScraper = GoGuardianScraper(logger=logger)
-    # job_results += goGuardianScraper.get_jobs()
-    # goGuardianScraper.close_browser()
+        # goGuardianScraper = GoGuardianScraper(logger=logger)
+        # job_results += goGuardianScraper.get_jobs()
+        # goGuardianScraper.close_browser()
 
-    # radlinkScraper = RadlinkScraper(logger=logger)
-    # job_results += radlinkScraper.get_jobs()
-    # radlinkScraper.close_browser()
+        # radlinkScraper = RadlinkScraper(logger=logger)
+        # job_results += radlinkScraper.get_jobs()
+        # radlinkScraper.close_browser()
 
-    # ablspaceSystemsScraper = ABLSpaceSystemsScraper(logger=logger)
-    # job_results += ablspaceSystemsScraper.get_jobs()
-    # ablspaceSystemsScraper.close_browser
+        # ablspaceSystemsScraper = ABLSpaceSystemsScraper(logger=logger)
+        # job_results += ablspaceSystemsScraper.get_jobs()
+        # ablspaceSystemsScraper.close_browser
 
-    # mattelScraper = MattelScraper(logger=logger)
-    # job_results += mattelScraper.get_jobs()
-    # mattelScraper.close_browser()
+        # mattelScraper = MattelScraper(logger=logger)
+        # job_results += mattelScraper.get_jobs()
+        # mattelScraper.close_browser()
 
-    for job in job_results:
-        print(job)
-        job.as_csv("jobs.csv")
+        spaceXScraper = SpaceXScraper(logger=logger, max_jobs=10, start_at_job=10)
+        job_results += spaceXScraper.get_jobs()
+        spaceXScraper.close_browser()
+    except KeyboardInterrupt:
+        logger.error("Keyboard interrupt")
+    finally:
+        logger.info(f"Scraped a total of {len(job_results)} jobs")
+        logger.info(f"Writing to CSV: {filename}")
+        for job in job_results:
+            print(job)
+            job.as_csv(filename)
