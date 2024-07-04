@@ -77,7 +77,6 @@ class BaseScraper(ABC):
         self.logger = logger or logging.getLogger(__name__)
         self.user_agent = UserAgent()
         self.base_url = base_url
-        self.assemble_url()
         self.browser = self.init_browser()
         self.browser.get(self.base_url)
 
@@ -150,10 +149,6 @@ class BaseScraper(ABC):
                     )
 
         return data
-
-    @abstractmethod
-    def assemble_url(self):
-        pass
 
     @abstractmethod
     def get_jobs(self):
