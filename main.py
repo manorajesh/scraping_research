@@ -484,6 +484,87 @@ class ABLSpaceSystemsScraper(BaseScraper):
         return job_results
 
 
+class MattelScraper(BaseScraper):
+    def __init__(
+        self,
+        radius=10,
+        location="El Segundo, CA",
+        start=0,
+        logger=None,
+        ignore_engineer=False,
+    ):
+        self.ignore_engineer = ignore_engineer
+        base_url = "https://jobs.mattel.com/en/search-jobs/El%20Segundo%2C%20CA/"
+        super().__init__(base_url, radius, location, start, logger)
+
+    def assemble_url(self):
+        self.url = "https://jobs.mattel.com/en/search-jobs/El%20Segundo%2C%20CA/"
+        self.logger.info(f"Assembled URL: {self.url}")
+
+    def next_page(self, job_results):
+        return super().next_page(job_results)
+
+    def get_jobs(self) -> list:
+        job_results = []
+        try:
+            links = self.browser.find_elements(By.TAG_NAME, "a")
+            job_links = [
+                link.get_attribute("href")
+                for link in links
+                if "/job/" in link.get_attribute("href")
+            ]
+        except Exception as e:
+            self.logger.error(f"Sub link Error: {e}")
+            return job_results
+
+        self.logger.info(f"Found {len(job_links)} jobs")
+        for href in job_links:
+            self.logger.info(f"Opening job: {href}")
+            self.browser.get(href)
+            print(self.browser.current_url)
+
+            try:
+                title_element = self.browser.find_element(
+                    By.CLASS_NAME, "job-title-heading"
+                )
+                title = title_element.text
+            except NoSuchElementException:
+                while title_element is None:
+                    self.random_delay(2, 2.5)
+                    title_element = self.browser.find_element(
+                        By.CLASS_NAME, "job-title-heading"
+                    )
+                    title = title_element.text
+                    self.logger.error(f"Title not found; trying again...")
+
+            # Extract location
+            location_element = self.browser.find_element(
+                By.CLASS_NAME, "job-location-heading"
+            )
+            location = location_element.text if location_element else "N/A"
+
+            div = self.browser.find_element(By.CLASS_NAME, "ats-description")
+            innerText = div.get_attribute("innerText")
+
+            extracted = self.llm_extract(innerText)
+            self.logger.debug(f"Extracted: {extracted}")
+
+            job_result = JobResult.from_llm_output(
+                title=title,
+                company="Mattel",
+                location=location,
+                llm_output=extracted,
+            )
+            job_results.append(job_result)
+            self.logger.debug(f"Job: {job_result}")
+
+            # Navigate back to the main jobs page
+            self.browser.back()
+
+        self.logger.info(f"Found {len(job_results)} jobs")
+        return job_results
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -497,21 +578,25 @@ if __name__ == "__main__":
     # job_results += makeRainScraper.get_jobs()
     # makeRainScraper.close_browser()
 
-    laTimesScraper = LATimesScraper(logger=logger)
-    job_results += laTimesScraper.get_jobs()
-    laTimesScraper.close_browser()
+    # laTimesScraper = LATimesScraper(logger=logger)
+    # job_results += laTimesScraper.get_jobs()
+    # laTimesScraper.close_browser()
 
-    goGuardianScraper = GoGuardianScraper(logger=logger)
-    job_results += goGuardianScraper.get_jobs()
-    goGuardianScraper.close_browser()
+    # goGuardianScraper = GoGuardianScraper(logger=logger)
+    # job_results += goGuardianScraper.get_jobs()
+    # goGuardianScraper.close_browser()
 
-    radlinkScraper = RadlinkScraper(logger=logger)
-    job_results += radlinkScraper.get_jobs()
-    radlinkScraper.close_browser()
+    # radlinkScraper = RadlinkScraper(logger=logger)
+    # job_results += radlinkScraper.get_jobs()
+    # radlinkScraper.close_browser()
 
-    ablspaceSystemsScraper = ABLSpaceSystemsScraper(logger=logger)
-    job_results += ablspaceSystemsScraper.get_jobs()
-    ablspaceSystemsScraper.close_browser
+    # ablspaceSystemsScraper = ABLSpaceSystemsScraper(logger=logger)
+    # job_results += ablspaceSystemsScraper.get_jobs()
+    # ablspaceSystemsScraper.close_browser
+
+    mattelScraper = MattelScraper(logger=logger)
+    job_results += mattelScraper.get_jobs()
+    mattelScraper.close_browser()
 
     for job in job_results:
         print(job)
