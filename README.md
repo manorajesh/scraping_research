@@ -14,7 +14,7 @@ Implement `next_page`, `get_jobs`, and `assemble_url` functions for the base cla
 - [x] GoGuardian
 - [x] Radlink
 - [x] abl Space Systems
-- [ ] SpaceX
+- [x] SpaceX
 - [ ] Boeing
 - [x] Mattel (`next_page` not implemented)
 - [ ] Disney
