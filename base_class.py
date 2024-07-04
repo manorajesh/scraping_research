@@ -50,7 +50,7 @@ class JobResult:
                 [
                     f"• {item}"
                     for item in lst
-                    if item != "" and item != "." and item != " "
+                    if item != "" and item != "." and item != " " and item != "N/A"
                 ]
             )
 
