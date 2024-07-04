@@ -582,17 +582,12 @@ class SpaceXScraper(BaseScraper):
         job_results = []
         try:
             links = self.browser.find_elements(By.TAG_NAME, "a")
-            # job_links = [
-            #     link.get_attribute("href")
-            #     for link in links
-            #     if "boards.greenhouse.io"
-            #     in link.get_attribute("href")  # SpaceX uses Greenhouse.io
-            # ]
-            job_links = []
-            for link in links:
-                href = link.get_attribute("href")
-                if "boards.greenhouse.io" in href and href not in job_links:
-                    job_links.append(href)
+            job_links = [
+                link.get_attribute("href")
+                for link in links
+                if "boards.greenhouse.io"
+                in link.get_attribute("href")  # SpaceX uses Greenhouse.io
+            ]
         except Exception as e:
             self.logger.error(f"Sub link Error: {e}")
             return job_results
@@ -624,7 +619,7 @@ class SpaceXScraper(BaseScraper):
             div = self.browser.find_element(By.ID, "content")
             children = div.find_elements(By.CSS_SELECTOR, "p, ul")
             innerText = ""
-            for child in children[1:-3]:
+            for child in children[1:]:
                 child_text = child.get_attribute("innerText")
                 if "COMPENSATION" in child_text.upper():
                     break
@@ -647,6 +642,103 @@ class SpaceXScraper(BaseScraper):
 
         self.logger.info(f"Scraped {len(job_results)} jobs")
         return job_results
+
+
+class DisneyScraper(BaseScraper):
+    def __init__(
+        self,
+        start_at_page=1,
+        max_pages=10,
+        logger=None,
+    ):
+        self.max_pages = max_pages
+        base_url = "https://www.disneycareers.com/en/search-jobs/Los%20Angeles%2C%20CA"  # TODO: Make location dynamic
+        super().__init__(base_url, logger)
+        self.max_pages = self.get_max_pages()
+        self.current_page = (
+            start_at_page
+            if start_at_page <= self.max_pages or start_at_page == 0
+            else 1
+        )
+
+    def get_max_pages(self):
+        try:
+            pages = self.browser.find_elements(By.CLASS_NAME, "pagination-total-pages")
+            return min(int(pages[0].text.strip("of ")), self.max_pages)
+        except Exception as e:
+            self.logger.error(f"Error with finding max pages: {e}")
+            return 1
+
+    def next_page(self, job_results):
+        if self.current_page < self.max_pages:
+            self.current_page += 1
+            next_button = self.browser.find_element(By.CLASS_NAME, "next")
+            next_button.click()
+            self.logger.info(f"Next page: {self.current_page}")
+            job_results += self.get_jobs()
+        return job_results
+
+    def get_jobs(self) -> list:
+        job_results = []
+        try:
+            links = self.browser.find_elements(By.TAG_NAME, "a")
+            job_links = []
+            for link in links:
+                href = link.get_attribute("href")
+                if href and "en/job/" in href and href not in job_links:
+                    job_links.append(href)
+        except Exception as e:
+            self.logger.error(f"Sub link Error: {e}")
+            return job_results
+
+        self.logger.info(f"Found {len(job_links)} jobs")
+        for href in job_links:
+            self.logger.info(f"Opening job: {href}")
+            self.browser.get(href)
+
+            try:
+                title_element = self.browser.find_element(By.TAG_NAME, "h1")
+                title = title_element.text
+            except NoSuchElementException:
+                while title_element is None:
+                    self.random_delay(2, 2.5)
+                    title_element = self.browser.find_element(By.TAG_NAME, "h1")
+                    title = title_element.text
+                    self.logger.error(f"Title not found; trying again...")
+
+            # Extract location
+            location_element = self.browser.find_element(By.CLASS_NAME, "job-location")
+            location = location_element.text if location_element else "N/A"
+
+            # Extract specific brand
+            brand_element = self.browser.find_element(By.CLASS_NAME, "job-brand")
+            brand = brand_element.text if brand_element else "N/A"
+
+            # Remove extraneous text
+            div = self.browser.find_element(By.CLASS_NAME, "ats-description")
+            children = div.find_elements(By.CSS_SELECTOR, "p, ul")
+            innerText = ""
+            for child in children[3:-3]:
+                child_text = child.get_attribute("innerText")
+                innerText += child_text
+
+            extracted = self.llm_extract(innerText)
+            self.logger.debug(f"Extracted: {extracted}")
+
+            job_result = JobResult.from_llm_output(
+                title=title.title(),
+                company=f"Disney - {brand}",
+                location=location,
+                llm_output=extracted,
+            )
+            job_results.append(job_result)
+            self.logger.debug(f"Job: {job_result}")
+
+            # Navigate back to the main jobs page
+            self.browser.back()
+
+        self.logger.info(f"Scraped {len(job_results)} jobs")
+        return self.next_page(job_results)
 
 
 if __name__ == "__main__":
@@ -684,9 +776,13 @@ if __name__ == "__main__":
         # job_results += mattelScraper.get_jobs()
         # mattelScraper.close_browser()
 
-        spaceXScraper = SpaceXScraper(logger=logger, max_jobs=10, start_at_job=10)
-        job_results += spaceXScraper.get_jobs()
-        spaceXScraper.close_browser()
+        # spaceXScraper = SpaceXScraper(logger=logger, max_jobs=10, start_at_job=10)
+        # job_results += spaceXScraper.get_jobs()
+        # spaceXScraper.close_browser()
+
+        disneyScraper = DisneyScraper(logger=logger, max_pages=2)
+        job_results += disneyScraper.get_jobs()
+        disneyScraper.close_browser()
     except KeyboardInterrupt:
         logger.error("Keyboard interrupt")
     finally:
