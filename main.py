@@ -491,9 +491,7 @@ class MattelScraper(BaseScraper):
         location="El Segundo, CA",
         start=0,
         logger=None,
-        ignore_engineer=False,
     ):
-        self.ignore_engineer = ignore_engineer
         base_url = "https://jobs.mattel.com/en/search-jobs/El%20Segundo%2C%20CA/"
         super().__init__(base_url, radius, location, start, logger)
 
@@ -502,7 +500,7 @@ class MattelScraper(BaseScraper):
         self.logger.info(f"Assembled URL: {self.url}")
 
     def next_page(self, job_results):
-        # Click the next page button until it doesn't exist
+        # Click the next page button until it doesn't
         return super().next_page(job_results)
 
     def get_jobs(self) -> list:
