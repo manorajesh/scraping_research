@@ -17,7 +17,7 @@ Implement `next_page`, `get_jobs`, and `assemble_url` functions for the base cla
 - [x] SpaceX
 - [ ] Boeing
 - [x] Mattel (`next_page` not implemented)
-- [ ] Disney
+- [x] Disney
 - [ ] Netflix
 - [ ] Margan Stanley
 - [ ] City National Bank
