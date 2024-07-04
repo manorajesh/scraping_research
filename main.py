@@ -9,9 +9,9 @@ import re
 
 # Greenhouse.io
 class RadiantScraper(BaseScraper):
-    def __init__(self, radius=10, location="El Segundo, CA", start=0, logger=None):
+    def __init__(self, logger=None):
         base_url = "https://boards.greenhouse.io/radiant"
-        super().__init__(base_url, radius, location, start, logger)
+        super().__init__(base_url, logger)
 
     def assemble_url(self):
         self.url = "https://boards.greenhouse.io/radiant"
@@ -102,9 +102,9 @@ class RadiantScraper(BaseScraper):
 
 # jobs.lever.co
 class MakeRainScraper(BaseScraper):
-    def __init__(self, radius=10, location="El Segundo, CA", start=0, logger=None):
+    def __init__(self, logger=None):
         base_url = "https://jobs.lever.co/make-rain"
-        super().__init__(base_url, radius, location, start, logger)
+        super().__init__(base_url, logger)
 
     def assemble_url(self):
         self.url = "https://jobs.lever.co/make-rain"
@@ -206,9 +206,9 @@ class MakeRainScraper(BaseScraper):
 
 
 class LATimesScraper(BaseScraper):
-    def __init__(self, radius=10, location="El Segundo, CA", start=0, logger=None):
+    def __init__(self, logger=None):
         base_url = "https://us241.dayforcehcm.com/CandidatePortal/en-US/nantmedia"
-        super().__init__(base_url, radius, location, start, logger)
+        super().__init__(base_url, logger)
 
     def assemble_url(self):
         self.url = "https://us241.dayforcehcm.com/CandidatePortal/en-US/nantmedia"
@@ -271,9 +271,9 @@ class LATimesScraper(BaseScraper):
 
 # Greenhouse.io
 class GoGuardianScraper(BaseScraper):
-    def __init__(self, radius=10, location="El Segundo, CA", start=0, logger=None):
+    def __init__(self, logger=None):
         base_url = "https://boards.greenhouse.io/goguardian"
-        super().__init__(base_url, radius, location, start, logger)
+        super().__init__(base_url, logger)
 
     def assemble_url(self):
         self.url = "https://boards.greenhouse.io/goguardian"
@@ -339,9 +339,9 @@ class GoGuardianScraper(BaseScraper):
 
 
 class RadlinkScraper(BaseScraper):
-    def __init__(self, radius=10, location="El Segundo, CA", start=0, logger=None):
+    def __init__(self, logger=None):
         base_url = "https://radlink.com/careers/"
-        super().__init__(base_url, radius, location, start, logger)
+        super().__init__(base_url, logger)
 
     def assemble_url(self):
         self.url = "https://radlink.com/careers/"
@@ -409,9 +409,9 @@ class RadlinkScraper(BaseScraper):
 
 # jobs.lever.co
 class ABLSpaceSystemsScraper(BaseScraper):
-    def __init__(self, radius=10, location="El Segundo, CA", start=0, logger=None):
+    def __init__(self, logger=None):
         base_url = "https://jobs.lever.co/ablspacesystems"
-        super().__init__(base_url, radius, location, start, logger)
+        super().__init__(base_url, logger)
 
     def assemble_url(self):
         self.url = "https://jobs.lever.co/ablspacesystems"
@@ -487,13 +487,10 @@ class ABLSpaceSystemsScraper(BaseScraper):
 class MattelScraper(BaseScraper):
     def __init__(
         self,
-        radius=10,
-        location="El Segundo, CA",
-        start=0,
         logger=None,
     ):
         base_url = "https://jobs.mattel.com/en/search-jobs/El%20Segundo%2C%20CA/"
-        super().__init__(base_url, radius, location, start, logger)
+        super().__init__(base_url, logger)
 
     def assemble_url(self):
         self.url = "https://jobs.mattel.com/en/search-jobs/El%20Segundo%2C%20CA/"
@@ -593,9 +590,9 @@ if __name__ == "__main__":
     # job_results += ablspaceSystemsScraper.get_jobs()
     # ablspaceSystemsScraper.close_browser
 
-    mattelScraper = MattelScraper(logger=logger)
-    job_results += mattelScraper.get_jobs()
-    mattelScraper.close_browser()
+    # mattelScraper = MattelScraper(logger=logger)
+    # job_results += mattelScraper.get_jobs()
+    # mattelScraper.close_browser()
 
     for job in job_results:
         print(job)

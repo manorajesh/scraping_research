@@ -73,18 +73,13 @@ class JobResult:
 
 
 class BaseScraper(ABC):
-    def __init__(
-        self, base_url, radius=10, location="El Segundo, CA", start=0, logger=None
-    ):
+    def __init__(self, base_url, logger=None):
         self.logger = logger or logging.getLogger(__name__)
-        self.radius = radius
-        self.location = location
-        self.start = start
         self.user_agent = UserAgent()
         self.base_url = base_url
         self.assemble_url()
         self.browser = self.init_browser()
-        self.browser.get(self.url)
+        self.browser.get(self.base_url)
 
     def init_browser(self):
         options = Options()
