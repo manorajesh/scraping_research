@@ -121,10 +121,12 @@ class BaseScraper(ABC):
         if custom_prompt:
             prompt = custom_prompt
 
+        now = time.time()
         self.logger.info(f"Processing job listing with LLM")
         response = ollama.generate(
             model=model, prompt=prompt + job_listing, options={"temperature": 0.2}
         )
+        self.logger.info(f"LLM processing took {time.time() - now} seconds")
 
         return response["response"]
 
