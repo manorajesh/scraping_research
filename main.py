@@ -502,6 +502,7 @@ class MattelScraper(BaseScraper):
         self.logger.info(f"Assembled URL: {self.url}")
 
     def next_page(self, job_results):
+        # Click the next page button until it doesn't exist
         return super().next_page(job_results)
 
     def get_jobs(self) -> list:
