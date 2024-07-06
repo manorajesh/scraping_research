@@ -1,4 +1,4 @@
-use log::{ info, error };
+use log::{ info, debug };
 use openai_api_rs::v1::api::Client;
 use openai_api_rs::v1::chat_completion::{ self, ChatCompletionRequest };
 use openai_api_rs::v1::common::GPT3_5_TURBO;
@@ -7,12 +7,15 @@ use scraper::{ Html, Selector };
 use serde_json;
 use std::env;
 use std::time::Instant;
+use rayon::prelude::*;
+// arc and mutex are used to share data between threads
+use std::sync::{ Arc, Mutex };
 
 mod jobresult;
 use jobresult::JobResult;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
+    tracing_subscriber::fmt().with_thread_ids(true).init();
 
     let start_time = Instant::now();
     info!("Program started");
@@ -40,18 +43,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if href.contains("/jobs/") {
             job_links.push(href.to_string());
         }
-        println!("{}", href);
+        debug!("{}", href);
     }
     info!("Collected job links");
     info!("Number of job links found: {}", job_links.len());
 
-    let mut job_results: Vec<JobResult> = vec![];
+    let job_results: Arc<Mutex<Vec<JobResult>>> = Arc::new(Mutex::new(vec![]));
 
-    for job_link in job_links {
+    job_links.par_iter().for_each(|job_link| {
         let job_response_start = Instant::now();
         let response = reqwest::blocking
-            ::get(&format!("https://boards.greenhouse.io{}", job_link))?
-            .text()?;
+            ::get(&format!("https://boards.greenhouse.io{}", job_link))
+            .unwrap()
+            .text()
+            .unwrap();
         info!("Fetched job details page");
         info!(
             "Time taken to fetch job details page: {} ms",
@@ -60,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let job_document_start = Instant::now();
         let document = Html::parse_document(&response);
-        let selector = Selector::parse("#content p, #content ul")?;
+        let selector = Selector::parse("#content p, #content ul").unwrap();
         let text_elems = document.select(&selector);
         info!("Parsed job details document");
         info!(
@@ -87,26 +92,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         let openai_start = Instant::now();
-        let result = client.chat_completion(req)?;
+        let result = client.chat_completion(req).unwrap();
         info!("Received response from OpenAI API");
         info!("Time taken for OpenAI API request: {} ms", openai_start.elapsed().as_millis());
 
         let content = result.choices[0].message.content.clone().expect("No content found");
         let content = content.trim_start_matches("```json").trim_end_matches("```");
-        let job_listing: serde_json::Value = serde_json::from_str(content)?;
+        let job_listing: serde_json::Value = serde_json::from_str(content).unwrap();
         info!("Parsed OpenAI response");
-        println!("{}", serde_json::to_string_pretty(&job_listing)?);
+        debug!("{}", serde_json::to_string_pretty(&job_listing).unwrap());
 
         let job_result = JobResult::from_json(
             "Radiant".to_string(),
             "Test".to_string(),
             "Remote".to_string(),
             content
-        )?;
-        println!("{}", job_result);
-        job_results.push(job_result);
+        ).unwrap();
+        debug!("{}", job_result);
+        job_results.lock().unwrap().push(job_result);
         info!("Created job result object");
-    }
+    });
+
+    let job_results = job_results.lock().unwrap();
 
     info!("Total number of job results: {}", job_results.len());
 
