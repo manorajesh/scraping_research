@@ -110,9 +110,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Total number of job results: {}", job_results.len());
 
-    let total_duration = start_time.elapsed().as_millis();
+    let total_duration = start_time.elapsed().as_secs_f64();
     info!("Program ended");
-    info!("Total time taken: {} ms", total_duration);
+    info!("Total time taken: {:.2} s", total_duration);
 
     Ok(())
 }

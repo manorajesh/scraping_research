@@ -40,26 +40,40 @@ impl JobResult {
         location: String,
         json_str: &str
     ) -> Result<Self, serde_json::Error> {
-        let data: HashMap<String, Vec<String>> = serde_json::from_str(json_str)?;
+        let data: HashMap<String, serde_json::Value> = serde_json::from_str(json_str)?;
+
+        let industry = data
+            .get("industry")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let responsibilities = data
+            .get("responsibilities")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+        let qualifications = data
+            .get("qualifications")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
 
         Ok(JobResult {
             company,
             title,
-            industry: data
-                .get("industry")
-                .cloned()
-                .unwrap_or_default()
-                .first()
-                .cloned()
-                .unwrap_or_default(),
-            responsibilities: data.get("responsibilities").cloned().unwrap_or_default(),
-            qualifications: data.get("qualifications").cloned().unwrap_or_default(),
+            industry,
+            responsibilities,
+            qualifications,
             location,
             other: vec!["N/A".to_string()],
         })
     }
 
-    pub fn as_csv(&self, filename: &str) {
+    fn as_csv(&self, filename: &str) {
         fn list_to_bullets(lst: &Vec<String>) -> String {
             lst.iter()
                 .filter(|item| !item.is_empty() && item != &"." && item != &" " && item != &"N/A")
