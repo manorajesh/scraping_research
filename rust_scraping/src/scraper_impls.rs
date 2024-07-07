@@ -2,7 +2,7 @@ use std::error::Error;
 
 use log::info;
 use reqwest::Client;
-use scraper::{ selector, Html, Selector };
+use scraper::{ Html, Selector };
 use url::Url;
 
 use crate::{ get_openai_response, jobresult::JobResult, scraper_trait::Scraper };
@@ -95,15 +95,28 @@ impl Scraper for GreenhouseScraper {
 #[derive(Debug, Clone)]
 pub struct GenericScraper {
     client: Client,
-    total_cost: f64,
 }
 
 impl GenericScraper {
     pub fn new() -> Self {
         Self {
             client: Client::new(),
-            total_cost: 0.0,
         }
+    }
+
+    pub async fn fetch_multiple_job_links(
+        &self,
+        urls: Vec<&str>
+    ) -> Result<(Vec<String>, f64), Box<dyn Error>> {
+        let mut job_links = vec![];
+        let mut total_cost = 0.0;
+        for url in urls {
+            let (links, cost) = self.fetch_job_links(&url).await?;
+            job_links.extend(links);
+            total_cost += cost;
+        }
+
+        Ok((job_links, total_cost))
     }
 }
 
@@ -122,7 +135,7 @@ impl Scraper for GenericScraper {
 
         let (suggested_links, cost) = get_openai_response(
             Some(
-                "Of these links, which ones most likely forwards to the details of the particular job. Respond only in valid JSON:"
+                "Of these links, which ones most likely forwards to the details of the particular job. Respond only in a valid JSON array of strings:"
             ),
             &hrefs
         ).await?;

@@ -18,9 +18,9 @@ mod scraper_trait;
 use scraper_trait::Scraper;
 
 mod scraper_impls;
-use scraper_impls::{ GenericScraper, GreenhouseScraper };
+use scraper_impls::{ GenericScraper };
 
-const FILENAME: &str = "job_results.csv";
+const FILENAME: &str = "jobs.csv";
 const PROMPT_TOKEN_PRICE: f64 = 0.0000005;
 const COMPLETION_TOKEN_PRICE: f64 = 0.0000015;
 
@@ -62,6 +62,18 @@ pub async fn get_openai_response(
     Ok((content.to_string(), prompt_price + completion_price))
 }
 
+fn ellipsize(s: &str, max_length: usize) -> String {
+    if s.chars().count() > max_length {
+        let truncated: String = s
+            .chars()
+            .take(max_length - 3)
+            .collect();
+        format!("{}...", truncated)
+    } else {
+        s.to_string()
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     // let logger = tracing_subscriber::fmt().with_thread_ids(true).pretty().finish();
     let logger = env_logger::Builder
@@ -84,7 +96,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let scraper = GreenhouseScraper::new();
     let scraper = GenericScraper::new();
     let (job_links, link_retriv_cost) = runtime.block_on(
-        scraper.fetch_job_links("https://boards.greenhouse.io/radiant")
+        // scraper.fetch_job_links("https://boards.greenhouse.io/radiant")
+        scraper.fetch_multiple_job_links(
+            vec![
+                "https://boards.greenhouse.io/radiant",
+                "https://jobs.lever.co/make-rain",
+                "https://us241.dayforcehcm.com/CandidatePortal/en-US/nantmedia",
+                "https://boards.greenhouse.io/goguardian"
+            ]
+        )
     )?;
 
     let job_results: Arc<Mutex<Vec<JobResult>>> = Arc::new(Mutex::new(vec![]));
@@ -92,7 +112,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     job_links.par_iter().for_each(|job_link| {
         let progress = multi.add(ProgressBar::new(3));
         progress.set_style(style.clone());
-        progress.set_prefix(job_link.clone());
+        progress.set_prefix(ellipsize(job_link, 40));
         progress.set_message("Processing job link");
 
         let scraper = scraper.clone();
