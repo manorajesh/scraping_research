@@ -2,7 +2,7 @@ use std::{ collections::HashMap, fs::OpenOptions };
 use serde_json;
 use std::io::Write;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct JobResult {
     company: String,
     title: String,
@@ -104,13 +104,10 @@ impl JobResult {
             other
         ).expect("Unable to write to file");
     }
-}
 
-impl std::fmt::Display for JobResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{} - {} - {} @ {}: {} responsibilities, {} qualifications, {} other",
+    pub fn as_string(&self) -> String {
+        format!(
+            "{} - {} - {} @ {}: {} Responsibilities, {} Qualifications, {} Other",
             self.company,
             self.title,
             self.industry,
@@ -119,5 +116,11 @@ impl std::fmt::Display for JobResult {
             self.qualifications.len(),
             self.other.len()
         )
+    }
+}
+
+impl std::fmt::Display for JobResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.as_string())
     }
 }
