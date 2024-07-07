@@ -1,8 +1,9 @@
 use std::{ collections::HashMap, fs::File };
+use serde::{ Serialize, Deserialize };
 use serde_json;
 use std::io::Write;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobResult {
     company: String,
     title: String,
@@ -36,7 +37,7 @@ impl JobResult {
         }
     }
 
-    pub fn from_json(
+    pub fn from_impartial_json(
         company: String,
         title: String,
         location: String,
@@ -45,6 +46,56 @@ impl JobResult {
     ) -> Result<Self, serde_json::Error> {
         let data: HashMap<String, serde_json::Value> = serde_json::from_str(json_str)?;
 
+        let industry = data
+            .get("industry")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let responsibilities = data
+            .get("responsibilities")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+        let qualifications = data
+            .get("qualifications")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+
+        Ok(JobResult {
+            company,
+            title,
+            industry,
+            responsibilities,
+            qualifications,
+            location,
+            other: vec!["N/A".to_string()],
+            api_cost,
+        })
+    }
+
+    pub fn from_complete_json(json_str: &str, api_cost: f64) -> Result<Self, serde_json::Error> {
+        let data: HashMap<String, serde_json::Value> = serde_json::from_str(json_str)?;
+
+        let company = data
+            .get("company")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let title = data
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let location = data
+            .get("location")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
         let industry = data
             .get("industry")
             .and_then(|v| v.as_str())
@@ -114,6 +165,10 @@ impl JobResult {
             self.qualifications.len(),
             self.other.len()
         )
+    }
+
+    pub fn as_json(&self) -> String {
+        serde_json::to_string(self).expect("Unable to serialize to JSON")
     }
 }
 

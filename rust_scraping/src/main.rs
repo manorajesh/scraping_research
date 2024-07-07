@@ -18,20 +18,24 @@ mod scraper_trait;
 use scraper_trait::Scraper;
 
 mod scraper_impls;
-use scraper_impls::GreenhouseScraper;
+use scraper_impls::{ GenericScraper, GreenhouseScraper };
 
 const FILENAME: &str = "job_results.csv";
 const PROMPT_TOKEN_PRICE: f64 = 0.0000005;
 const COMPLETION_TOKEN_PRICE: f64 = 0.0000015;
 
-pub async fn get_openai_response(description: &str) -> Result<(String, f64), Box<dyn Error>> {
+pub async fn get_openai_response(
+    prompt: Option<&str>,
+    description: &str
+) -> Result<(String, f64), Box<dyn Error>> {
+    let prompt = prompt.unwrap_or(
+        "Can you give me the industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing in valid JSON. Find as many responsibilities and qualifications as it says:"
+    );
     let req = ChatCompletionRequest::new(
         GPT3_5_TURBO.to_string(),
         vec![chat_completion::ChatCompletionMessage {
             role: chat_completion::MessageRole::user,
-            content: chat_completion::Content::Text(
-                format!("Can you give me the industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing in valid JSON. Find as many responsibilities and qualifications as it says:{}", description)
-            ),
+            content: chat_completion::Content::Text(format!("{}{}", prompt, description)),
             name: None,
         }]
     );
@@ -77,8 +81,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let runtime = Runtime::new()?;
 
-    let scraper = GreenhouseScraper::new();
-    let job_links = runtime.block_on(
+    // let scraper = GreenhouseScraper::new();
+    let scraper = GenericScraper::new();
+    let (job_links, link_retriv_cost) = runtime.block_on(
         scraper.fetch_job_links("https://boards.greenhouse.io/radiant")
     )?;
 
@@ -140,7 +145,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .iter()
         .map(|job_result| job_result.api_cost)
         .sum();
-    info!("Total time taken: {:.2} s @ ${:.4}", total_duration, total_cost);
+    info!("Total time taken: {:.2} s @ ${:.4}", total_duration, total_cost + link_retriv_cost);
 
     Ok(())
 }
