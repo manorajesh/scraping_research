@@ -102,7 +102,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "https://boards.greenhouse.io/radiant",
                 "https://jobs.lever.co/make-rain",
                 "https://us241.dayforcehcm.com/CandidatePortal/en-US/nantmedia",
-                "https://boards.greenhouse.io/goguardian"
+                "https://boards.greenhouse.io/goguardian",
+                "https://radlink.com/careers/",
+                "https://jobs.lever.co/ablspacesystems",
+                "https://jobs.mattel.com/en/search-jobs/El%20Segundo%2C%20CA/",
+                "https://www.spacex.com/careers/jobs?location=hawthorne%252C%2520ca",
+                "https://www.disneycareers.com/en/search-jobs/Los%20Angeles%2C%20CA",
+                "https://jobs.boeing.com/search-jobs/El%20Segundo%2C%20CA/",
+                "https://jobs.netflix.com/search"
             ]
         )
     )?;

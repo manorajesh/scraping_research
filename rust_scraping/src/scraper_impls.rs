@@ -176,7 +176,8 @@ impl Scraper for GenericScraper {
             job_description.push_str(&elem.text().collect::<String>());
             job_description.push_str("\n");
         }
-        info!("Job description extracted: {}", job_description);
+        // info!("Job description extracted: {}", job_description);
+        info!("Job description extracted");
 
         let (openai_response, api_cost) = get_openai_response(
             Some(
