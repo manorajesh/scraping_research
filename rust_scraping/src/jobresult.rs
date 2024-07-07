@@ -1,4 +1,4 @@
-use std::{ collections::HashMap, fs::OpenOptions };
+use std::{ collections::HashMap, fs::File };
 use serde_json;
 use std::io::Write;
 
@@ -73,7 +73,7 @@ impl JobResult {
         })
     }
 
-    fn as_csv(&self, filename: &str) {
+    pub fn as_csv(&self, file: &mut File) {
         fn list_to_bullets(lst: &Vec<String>) -> String {
             lst.iter()
                 .filter(|item| !item.is_empty() && item != &"." && item != &" " && item != &"N/A")
@@ -81,12 +81,6 @@ impl JobResult {
                 .collect::<Vec<String>>()
                 .join("\n")
         }
-
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(filename)
-            .expect("Unable to open file");
 
         let responsibilities = list_to_bullets(&self.responsibilities);
         let qualifications = list_to_bullets(&self.qualifications);

@@ -47,6 +47,23 @@ impl Scraper for GreenhouseScraper {
 
     async fn parse_job_details(&self, job_details: &str) -> Result<JobResult, Box<dyn Error>> {
         let document = Html::parse_document(&job_details);
+        let company = "Radiant";
+        let title = document
+            .select(&Selector::parse(".app-title")?)
+            .next()
+            .expect("No job title found")
+            .text()
+            .collect::<String>()
+            .trim()
+            .to_string();
+        let location = document
+            .select(&Selector::parse(".location")?)
+            .next()
+            .expect("No job location found")
+            .text()
+            .collect::<String>()
+            .trim()
+            .to_string();
         let selector = Selector::parse("#content p, #content ul")?;
         let text_elems = document.select(&selector);
 
@@ -63,9 +80,9 @@ impl Scraper for GreenhouseScraper {
 
         let job_listing: serde_json::Value = serde_json::from_str(&openai_response)?;
         let job_result = JobResult::from_json(
-            "Company Name".to_string(),
-            "Job Title".to_string(),
-            "Location".to_string(),
+            company.to_string(),
+            title,
+            location,
             &serde_json::to_string(&job_listing)?
         )?;
 

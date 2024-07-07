@@ -1,4 +1,4 @@
-use std::{ sync::{ Arc, Mutex }, time::{ Duration, Instant } };
+use std::{ fs::OpenOptions, sync::{ Arc, Mutex }, time::Instant };
 use indicatif::{ MultiProgress, ProgressBar, ProgressStyle };
 use indicatif_log_bridge::LogWrapper;
 use log::{ info, error };
@@ -19,6 +19,8 @@ use scraper_trait::Scraper;
 
 mod scraper_impls;
 use scraper_impls::GreenhouseScraper;
+
+const FILENAME: &str = "job_results.csv";
 
 pub async fn get_openai_response(description: &str) -> Result<String, Box<dyn Error>> {
     let req = ChatCompletionRequest::new(
@@ -59,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     LogWrapper::new(multi.clone(), logger).try_init()?;
 
     let start_time = std::time::Instant::now();
-    info!("Program started");
+    info!("Initializing");
 
     let runtime = Runtime::new()?;
 
@@ -75,7 +77,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         progress.set_style(style.clone());
         progress.set_prefix(job_link.clone());
         progress.set_message("Processing job link");
-        progress.enable_steady_tick(Duration::from_millis(100));
 
         let scraper = scraper.clone();
         let job_results = Arc::clone(&job_results);
@@ -106,8 +107,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let job_results = job_results.lock().unwrap();
     info!("Total number of job results: {}", job_results.len());
 
+    // write to file
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(FILENAME)
+        .expect("Unable to open file");
+
+    let progress = multi.add(ProgressBar::new(job_results.len() as u64));
+    progress.set_style(style.clone());
+    progress.set_prefix("Writing to file");
+    for job_result in job_results.iter() {
+        job_result.as_csv(&mut file);
+        progress.inc(1);
+    }
+    info!("Wrote job results to file");
+
     let total_duration = start_time.elapsed().as_secs_f64();
-    info!("Program ended");
     info!("Total time taken: {:.2} s", total_duration);
 
     Ok(())
