@@ -76,16 +76,101 @@ impl Scraper for GreenhouseScraper {
         info!("Job description extracted");
 
         // Assume you have some method to get the OpenAI response
-        let openai_response = get_openai_response(&job_description).await?;
+        let (openai_response, api_cost) = get_openai_response(&job_description).await?;
 
         let job_listing: serde_json::Value = serde_json::from_str(&openai_response)?;
         let job_result = JobResult::from_json(
             company.to_string(),
             title,
             location,
-            &serde_json::to_string(&job_listing)?
+            &serde_json::to_string(&job_listing)?,
+            api_cost
         )?;
 
         Ok(job_result)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct GenericScraper {
+    client: Client,
+    company_url: String,
+}
+
+impl GenericScraper {
+    pub fn new(company_url: &str) -> Self {
+        Self {
+            client: Client::new(),
+            company_url: company_url.to_string(),
+        }
+    }
+}
+
+// impl Scraper for GenericScraper {
+//     async fn fetch_job_links(&self, url: &str) -> Result<Vec<String>, Box<dyn Error>> {
+//         let response = self.client.get(url).send().await?.text().await?;
+//         let document = Html::parse_document(&response);
+//         let selector = Selector::parse("a")?;
+//         let links = document.select(&selector);
+
+//         let job_links: Vec<String> = links
+//             .filter_map(|link| {
+//                 let href = link.value().attr("href")?;
+//                 if href.contains("/jobs/") {
+//                     Some(format!("{}{}", self.company_url, href))
+//                 } else {
+//                     None
+//                 }
+//             })
+//             .collect();
+
+//         Ok(job_links)
+//     }
+
+//     async fn fetch_job_details(&self, job_link: &str) -> Result<String, Box<dyn Error>> {
+//         let response = self.client.get(job_link).send().await?.text().await?;
+//         Ok(response)
+//     }
+
+//     async fn parse_job_details(&self, job_details: &str) -> Result<JobResult, Box<dyn Error>> {
+//         let document = Html::parse_document(&job_details);
+//         let company = "Radiant";
+//         let title = document
+//             .select(&Selector::parse(".app-title")?)
+//             .next()
+//             .expect("No job title found")
+//             .text()
+//             .collect::<String>()
+//             .trim()
+//             .to_string();
+//         let location = document
+//             .select(&Selector::parse(".location")?)
+//             .next()
+//             .expect("No job location found")
+//             .text()
+//             .collect::<String>()
+//             .trim()
+//             .to_string();
+//         let selector = Selector::parse("#content p, #content ul")?;
+//         let text_elems = document.select(&selector);
+
+//         let mut job_description = String::new();
+//         for elem in text_elems {
+//             job_description.push_str(&elem.text().collect::<String>());
+//             job_description.push_str("\n");
+//         }
+
+//         info!("Job description extracted");
+
+//         // Assume you have some method to get the OpenAI response
+//         let openai_response = get_openai_response(&job_description).await?;
+
+//         let job_listing: serde_json::Value = serde_json::from_str(&openai_response)?;
+//         let job_result = JobResult::from_json(
+//             company.to_string(),
+//             title,
+//             location,
+//             &serde_json::to_string(&job_listing)?
+//         )?;
+//     }
+// }

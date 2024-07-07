@@ -21,8 +21,10 @@ mod scraper_impls;
 use scraper_impls::GreenhouseScraper;
 
 const FILENAME: &str = "job_results.csv";
+const PROMPT_TOKEN_PRICE: f64 = 0.0000005;
+const COMPLETION_TOKEN_PRICE: f64 = 0.0000015;
 
-pub async fn get_openai_response(description: &str) -> Result<String, Box<dyn Error>> {
+pub async fn get_openai_response(description: &str) -> Result<(String, f64), Box<dyn Error>> {
     let req = ChatCompletionRequest::new(
         GPT3_5_TURBO.to_string(),
         vec![chat_completion::ChatCompletionMessage {
@@ -36,14 +38,24 @@ pub async fn get_openai_response(description: &str) -> Result<String, Box<dyn Er
     let openai_start = Instant::now();
     let client = Client::new(env::var("OPENAI_API_KEY")?.to_string());
     let result = client.chat_completion(req)?;
-    info!("Received response from OpenAI API");
     info!("Time taken for OpenAI API request: {} ms", openai_start.elapsed().as_millis());
+
+    // price calculation
+    let prompt_tokens = result.usage.prompt_tokens;
+    let completion_tokens = result.usage.completion_tokens;
+    let prompt_price = (prompt_tokens as f64) * PROMPT_TOKEN_PRICE;
+    let completion_price = (completion_tokens as f64) * COMPLETION_TOKEN_PRICE;
+    info!(
+        "Received response from OpenAI API: {} tokens used @ ${}",
+        prompt_tokens + completion_tokens,
+        prompt_price + completion_price
+    );
 
     let content = result.choices[0].message.content.clone().expect("No content found");
     let content = content.trim_start_matches("```json").trim_end_matches("```");
     info!("Parsed OpenAI response");
 
-    Ok(content.to_string())
+    Ok((content.to_string(), prompt_price + completion_price))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -124,7 +136,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Wrote job results to file");
 
     let total_duration = start_time.elapsed().as_secs_f64();
-    info!("Total time taken: {:.2} s", total_duration);
+    let total_cost: f64 = job_results
+        .iter()
+        .map(|job_result| job_result.api_cost)
+        .sum();
+    info!("Total time taken: {:.2} s @ ${:.4}", total_duration, total_cost);
 
     Ok(())
 }

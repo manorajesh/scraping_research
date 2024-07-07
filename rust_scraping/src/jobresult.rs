@@ -11,6 +11,7 @@ pub struct JobResult {
     qualifications: Vec<String>,
     location: String,
     other: Vec<String>,
+    pub api_cost: f64,
 }
 
 impl JobResult {
@@ -31,6 +32,7 @@ impl JobResult {
             qualifications,
             location,
             other,
+            api_cost: 0.0,
         }
     }
 
@@ -38,7 +40,8 @@ impl JobResult {
         company: String,
         title: String,
         location: String,
-        json_str: &str
+        json_str: &str,
+        api_cost: f64
     ) -> Result<Self, serde_json::Error> {
         let data: HashMap<String, serde_json::Value> = serde_json::from_str(json_str)?;
 
@@ -70,6 +73,7 @@ impl JobResult {
             qualifications,
             location,
             other: vec!["N/A".to_string()],
+            api_cost,
         })
     }
 
