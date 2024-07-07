@@ -1,4 +1,6 @@
-use std::{ sync::{ Arc, Mutex }, time::Instant };
+use std::{ sync::{ Arc, Mutex }, time::{ Duration, Instant } };
+use indicatif::{ MultiProgress, ProgressBar, ProgressStyle };
+use indicatif_log_bridge::LogWrapper;
 use log::{ info, error };
 use tokio::runtime::Runtime;
 use rayon::prelude::*;
@@ -30,8 +32,8 @@ pub async fn get_openai_response(description: &str) -> Result<String, Box<dyn Er
         }]
     );
     let openai_start = Instant::now();
-    let client = Client::new(env::var("OPENAI_API_KEY").unwrap().to_string());
-    let result = client.chat_completion(req).unwrap();
+    let client = Client::new(env::var("OPENAI_API_KEY")?.to_string());
+    let result = client.chat_completion(req)?;
     info!("Received response from OpenAI API");
     info!("Time taken for OpenAI API request: {} ms", openai_start.elapsed().as_millis());
 
@@ -43,7 +45,18 @@ pub async fn get_openai_response(description: &str) -> Result<String, Box<dyn Er
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt().with_thread_ids(true).pretty().init();
+    // let logger = tracing_subscriber::fmt().with_thread_ids(true).pretty().finish();
+    let logger = env_logger::Builder
+        ::from_env(env_logger::Env::default().default_filter_or("info"))
+        .build();
+
+    let style = ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {prefix}: {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")?
+        .progress_chars("##-");
+
+    let multi = MultiProgress::new();
+
+    LogWrapper::new(multi.clone(), logger).try_init()?;
 
     let start_time = std::time::Instant::now();
     info!("Program started");
@@ -58,15 +71,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     let job_results: Arc<Mutex<Vec<JobResult>>> = Arc::new(Mutex::new(vec![]));
 
     job_links.par_iter().for_each(|job_link| {
+        let progress = multi.add(ProgressBar::new(3));
+        progress.set_style(style.clone());
+        progress.set_prefix(job_link.clone());
+        progress.set_message("Processing job link");
+        progress.enable_steady_tick(Duration::from_millis(100));
+
         let scraper = scraper.clone();
         let job_results = Arc::clone(&job_results);
+        progress.inc(1);
+        progress.set_message("Fetching job details");
 
         let job_result = runtime.block_on(async {
             let job_details = scraper.fetch_job_details(job_link).await?;
+            progress.inc(1);
+            progress.set_message("Parsing job details");
             let job_result = scraper.parse_job_details(&job_details).await?;
+            progress.inc(1);
             Ok(job_result) as Result<JobResult, Box<dyn Error>>
         });
 
+        progress.finish();
         match job_result {
             Ok(job_result) => {
                 info!("Created job result object: {}", job_result);
