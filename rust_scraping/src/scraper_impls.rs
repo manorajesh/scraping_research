@@ -47,7 +47,7 @@ impl Scraper for GreenhouseScraper {
     }
 
     async fn parse_job_details(&self, job_details: &str) -> Result<JobResult, Box<dyn Error>> {
-        let document = Html::parse_document(&job_details);
+        let document = Html::parse_document(job_details);
         let company = "Radiant";
         let title = document
             .select(&Selector::parse(".app-title")?)
@@ -71,7 +71,7 @@ impl Scraper for GreenhouseScraper {
         let mut job_description = String::new();
         for elem in text_elems {
             job_description.push_str(&elem.text().collect::<String>());
-            job_description.push_str("\n");
+            job_description.push('\n');
         }
 
         info!("Job description extracted");
@@ -152,14 +152,14 @@ impl Scraper for GenericScraper {
     }
 
     async fn parse_job_details(&self, job_details: &str) -> Result<JobResult, Box<dyn Error>> {
-        let document = Html::parse_document(&job_details);
+        let document = Html::parse_document(job_details);
         let selector = Selector::parse("body")?;
 
         let text_elems = document.select(&selector);
         let mut job_description = String::new();
         for elem in text_elems {
             job_description.push_str(&elem.text().collect::<String>());
-            job_description.push_str("\n");
+            job_description.push('\n');
         }
         // info!("Job description extracted: {}", job_description);
         info!("Job description extracted");
