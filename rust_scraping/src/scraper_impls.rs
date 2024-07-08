@@ -2,10 +2,10 @@ use std::error::Error;
 
 use log::info;
 use reqwest::Client;
-use scraper::{ Html, Selector };
+use scraper::{Html, Selector};
 use url::Url;
 
-use crate::{ get_openai_response, jobresult::JobResult, scraper_trait::Scraper };
+use crate::{get_openai_response, jobresult::JobResult, scraper_trait::Scraper};
 
 #[derive(Debug, Clone)]
 pub struct GreenhouseScraper {
@@ -85,7 +85,7 @@ impl Scraper for GreenhouseScraper {
             title,
             location,
             &serde_json::to_string(&job_listing)?,
-            api_cost
+            api_cost,
         )?;
 
         Ok(job_result)
@@ -172,10 +172,8 @@ impl Scraper for GenericScraper {
         ).await?;
 
         let job_listing: serde_json::Value = serde_json::from_str(&openai_response)?;
-        let job_result = JobResult::from_complete_json(
-            &serde_json::to_string(&job_listing)?,
-            api_cost
-        )?;
+        let job_result =
+            JobResult::from_complete_json(&serde_json::to_string(&job_listing)?, api_cost)?;
 
         Ok(job_result)
     }

@@ -1,7 +1,7 @@
-use std::{ collections::HashMap, fs::File };
-use serde::{ Serialize, Deserialize };
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::io::Write;
+use std::{collections::HashMap, fs::File};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobResult {
@@ -24,7 +24,7 @@ impl JobResult {
         responsibilities: Vec<String>,
         qualifications: Vec<String>,
         location: String,
-        other: Vec<String>
+        other: Vec<String>,
     ) -> Self {
         JobResult {
             company,
@@ -43,7 +43,7 @@ impl JobResult {
         title: String,
         location: String,
         json_str: &str,
-        api_cost: f64
+        api_cost: f64,
     ) -> Result<Self, serde_json::Error> {
         let data: HashMap<String, serde_json::Value> = serde_json::from_str(json_str)?;
 
@@ -144,7 +144,8 @@ impl JobResult {
             qualifications,
             self.location,
             other
-        ).expect("Unable to write to file");
+        )
+        .expect("Unable to write to file");
     }
 
     pub fn as_string(&self) -> String {
@@ -176,7 +177,7 @@ impl JobResult {
             responsibilities,
             qualifications,
             self.location.clone(),
-            other
+            other,
         ]
     }
 }

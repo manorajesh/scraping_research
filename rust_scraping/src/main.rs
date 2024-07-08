@@ -1,14 +1,18 @@
-use std::{ fs::OpenOptions, sync::{ Arc, Mutex }, time::Instant };
-use indicatif::{ MultiProgress, ProgressBar, ProgressStyle };
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use indicatif_log_bridge::LogWrapper;
-use log::{ info, error };
-use tokio::runtime::Runtime;
+use log::{error, info};
 use rayon::prelude::*;
-use std::error::Error;
 use std::env;
+use std::error::Error;
+use std::{
+    fs::OpenOptions,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
+use tokio::runtime::Runtime;
 
 use openai_api_rs::v1::api::Client;
-use openai_api_rs::v1::chat_completion::{ self, ChatCompletionRequest };
+use openai_api_rs::v1::chat_completion::{self, ChatCompletionRequest};
 use openai_api_rs::v1::common::GPT3_5_TURBO;
 
 use csv::Writer;
@@ -42,7 +46,7 @@ const PREFIX_MAX_LENGTH: usize = 40;
 
 pub async fn get_openai_response(
     prompt: Option<&str>,
-    description: &str
+    description: &str,
 ) -> Result<(String, f64), Box<dyn Error>> {
     let prompt = prompt.unwrap_or(
         "Can you give me the industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing in valid JSON. Find as many responsibilities and qualifications as it says:"
@@ -53,12 +57,26 @@ pub async fn get_openai_response(
             role: chat_completion::MessageRole::user,
             content: chat_completion::Content::Text(format!("{}{}", prompt, description)),
             name: None,
-        }]
+        }],
     );
     let openai_start = Instant::now();
     let client = Client::new(env::var("OPENAI_API_KEY")?.to_string());
-    let result = client.chat_completion(req)?;
-    info!("Time taken for OpenAI API request: {} ms", openai_start.elapsed().as_millis());
+    let result = match client.chat_completion(req.clone()) {
+        Ok(result) => result,
+        Err(e) => {
+            if e.to_string().contains("429") {
+                error!("Rate limit exceeded, sleeping for 1 minute");
+                std::thread::sleep(std::time::Duration::from_secs(60));
+                client.chat_completion(req)?
+            } else {
+                return Err(Box::new(e));
+            }
+        }
+    };
+    info!(
+        "Time taken for OpenAI API request: {} ms",
+        openai_start.elapsed().as_millis()
+    );
 
     // price calculation
     let prompt_tokens = result.usage.prompt_tokens;
@@ -71,8 +89,14 @@ pub async fn get_openai_response(
         prompt_price + completion_price
     );
 
-    let content = result.choices[0].message.content.clone().expect("No content found");
-    let content = content.trim_start_matches("```json").trim_end_matches("```");
+    let content = result.choices[0]
+        .message
+        .content
+        .clone()
+        .expect("No content found");
+    let content = content
+        .trim_start_matches("```json")
+        .trim_end_matches("```");
     info!("Parsed OpenAI response");
 
     Ok((content.to_string(), prompt_price + completion_price))
@@ -80,11 +104,7 @@ pub async fn get_openai_response(
 
 fn format_string(s: &str, max_length: usize) -> String {
     match s.chars().count() {
-        len if len > max_length =>
-            s
-                .chars()
-                .take(max_length - 3)
-                .collect::<String>() + "...",
+        len if len > max_length => s.chars().take(max_length - 3).collect::<String>() + "...",
         len if len < max_length => s.to_string() + &" ".repeat(max_length - len),
         _ => s.to_string(),
     }
@@ -92,9 +112,8 @@ fn format_string(s: &str, max_length: usize) -> String {
 
 fn main() -> Result<(), Box<dyn Error>> {
     // let logger = tracing_subscriber::fmt().with_thread_ids(true).pretty().finish();
-    let logger = env_logger::Builder
-        ::from_env(env_logger::Env::default().default_filter_or("info"))
-        .build();
+    let logger =
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).build();
 
     let style = ProgressStyle::default_bar()
         .template("[{elapsed_precise}] {prefix}: {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")?
@@ -202,7 +221,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .iter()
         .map(|job_result| job_result.api_cost)
         .sum();
-    info!("Total time taken: {:.2} s @ ${:.4}", total_duration, total_cost + link_retriv_cost);
+    info!(
+        "Total time taken: {:.2} s @ ${:.4}",
+        total_duration,
+        total_cost + link_retriv_cost
+    );
 
     Ok(())
 }
