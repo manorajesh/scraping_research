@@ -12,6 +12,7 @@ pub struct JobResult {
     qualifications: Vec<String>,
     location: String,
     other: Vec<String>,
+    #[serde(skip_serializing)]
     pub api_cost: f64,
 }
 
@@ -129,14 +130,6 @@ impl JobResult {
     }
 
     pub fn as_csv(&self, file: &mut File) {
-        fn list_to_bullets(lst: &Vec<String>) -> String {
-            lst.iter()
-                .filter(|item| !item.is_empty() && item != &"." && item != &" " && item != &"N/A")
-                .map(|item| format!("• {}", item))
-                .collect::<Vec<String>>()
-                .join("\n")
-        }
-
         let responsibilities = list_to_bullets(&self.responsibilities);
         let qualifications = list_to_bullets(&self.qualifications);
         let other = list_to_bullets(&self.other);
@@ -170,10 +163,34 @@ impl JobResult {
     pub fn as_json(&self) -> String {
         serde_json::to_string(self).expect("Unable to serialize to JSON")
     }
+
+    pub fn to_csv_record(&self) -> Vec<String> {
+        let responsibilities = list_to_bullets(&self.responsibilities);
+        let qualifications = list_to_bullets(&self.qualifications);
+        let other = list_to_bullets(&self.other);
+
+        vec![
+            self.company.clone(),
+            self.title.clone(),
+            self.industry.clone(),
+            responsibilities,
+            qualifications,
+            self.location.clone(),
+            other
+        ]
+    }
 }
 
 impl std::fmt::Display for JobResult {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.as_string())
     }
+}
+
+fn list_to_bullets(lst: &Vec<String>) -> String {
+    lst.iter()
+        .filter(|item| !item.is_empty() && item != &"." && item != &" " && item != &"N/A")
+        .map(|item| format!("• {}", item))
+        .collect::<Vec<String>>()
+        .join("\n")
 }

@@ -103,21 +103,6 @@ impl GenericScraper {
             client: Client::new(),
         }
     }
-
-    pub async fn fetch_multiple_job_links(
-        &self,
-        urls: Vec<&str>
-    ) -> Result<(Vec<String>, f64), Box<dyn Error>> {
-        let mut job_links = vec![];
-        let mut total_cost = 0.0;
-        for url in urls {
-            let (links, cost) = self.fetch_job_links(&url).await?;
-            job_links.extend(links);
-            total_cost += cost;
-        }
-
-        Ok((job_links, total_cost))
-    }
 }
 
 impl Scraper for GenericScraper {
@@ -144,17 +129,17 @@ impl Scraper for GenericScraper {
         let json_links: serde_json::Value = serde_json::from_str(&suggested_links)?;
         let job_links: Vec<String> = json_links
             .as_array()
-            .unwrap()
+            .ok_or("json_links is not an array")?
             .iter()
             .map(|link| {
-                let link_str = link.as_str().unwrap();
+                let link_str = link.as_str().ok_or("link is not a string")?;
                 if let Ok(parsed_url) = Url::parse(link_str) {
-                    parsed_url.to_string()
+                    Ok(parsed_url.to_string())
                 } else {
-                    Url::parse(url).unwrap().join(link_str).unwrap().to_string()
+                    Ok(Url::parse(url)?.join(link_str)?.to_string())
                 }
             })
-            .collect();
+            .collect::<Result<Vec<String>, Box<dyn Error>>>()?;
 
         info!("Job links extracted: {:?}", job_links);
 
