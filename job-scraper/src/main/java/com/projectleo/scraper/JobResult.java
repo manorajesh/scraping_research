@@ -1,28 +1,46 @@
 package com.projectleo.scraper;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class JobResult {
+    @JsonProperty(defaultValue = "N/A")
     private String company;
-    private String title;
+
+    @JsonProperty(defaultValue = "N/A")
+    private String jobTitle;
+
+    @JsonProperty(defaultValue = "N/A")
     private String industry;
+
     private List<String> responsibilities;
+
     private List<String> qualifications;
+
+    @JsonProperty(defaultValue = "N/A")
     private String location;
+
     private List<String> other;
 
     @JsonIgnore
     private double apiCost;
 
     // Constructors
-    public JobResult() {}
+    public JobResult() {
+        this.responsibilities = List.of("N/A");
+        this.qualifications = List.of("N/A");
+        this.other = List.of("N/A");
+    }
 
-    public JobResult(String company, String title, String industry, List<String> responsibilities, List<String> qualifications, String location, List<String> other, double apiCost) {
+    public JobResult(String company, String jobTitle, String industry, List<String> responsibilities,
+            List<String> qualifications, String location, List<String> other, double apiCost) {
         this.company = company;
-        this.title = title;
+        this.jobTitle = jobTitle;
         this.industry = industry;
         this.responsibilities = responsibilities;
         this.qualifications = qualifications;
@@ -40,12 +58,12 @@ public class JobResult {
         this.company = company;
     }
 
-    public String getTitle() {
-        return title;
+    public String getJobTitle() {
+        return jobTitle;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setJobTitle(String jobTitle) {
+        this.jobTitle = jobTitle;
     }
 
     public String getIndustry() {
@@ -97,20 +115,20 @@ public class JobResult {
     }
 
     // Method to create JobResult from partial JSON
-    public static JobResult fromImpartialJson(String company, String title, String location, String jsonStr, double apiCost) throws IOException {
+    public static JobResult fromImpartialJson(String company, String jobTitle, String location, String jsonStr,
+            double apiCost) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         PartialJobData data = mapper.readValue(jsonStr, PartialJobData.class);
 
         return new JobResult(
-            company,
-            title,
-            data.getIndustry(),
-            data.getResponsibilities(),
-            data.getQualifications(),
-            location,
-            List.of("N/A"),
-            apiCost
-        );
+                company,
+                jobTitle,
+                data.getIndustry(),
+                data.getResponsibilities(),
+                data.getQualifications(),
+                location,
+                List.of("N/A"),
+                apiCost);
     }
 
     // Method to create JobResult from complete JSON
@@ -122,22 +140,27 @@ public class JobResult {
     // Method to convert JobResult to string
     public String asString() {
         return String.format(
-            "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications, %d Other",
-            company, title, industry, location, responsibilities.size(), qualifications.size(), other.size()
-        );
+                "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications, %d Other",
+                company, jobTitle, industry, location, responsibilities.size(), qualifications.size(), other.size());
     }
 
     // Method to convert JobResult to CSV record
     public List<String> toCsvRecord() {
         return List.of(
-            company,
-            title,
-            industry,
-            String.join(";", responsibilities),
-            String.join(";", qualifications),
-            location,
-            String.join(";", other)
-        );
+                company,
+                jobTitle,
+                industry,
+                formatAsBulletedList(responsibilities),
+                formatAsBulletedList(qualifications),
+                location,
+                formatAsBulletedList(other));
+    }
+
+    // Helper method to format a list as a bulleted list
+    private String formatAsBulletedList(List<String> items) {
+        return items.stream()
+                .map(item -> "• " + item)
+                .collect(Collectors.joining("\n"));
     }
 
     // Inner class to map partial job data
