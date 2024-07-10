@@ -104,6 +104,12 @@ public class OpenAIClient {
                                 logger.info("Rate limit exceeded. Retrying in {} ms...", waitTime);
                                 Thread.sleep(waitTime);
                                 return sendRequestWithRetry(request, retryCount + 1);
+                        } else if (retryCount == 3) {
+                                throw new RuntimeException("Retry limit reached.");
+                        } else if (retryCount < 3) {
+                                logger.error("OpenAI API error: {}", error.getError().getMessage());
+                                logger.info("Retrying request...");
+                                return sendRequestWithRetry(request, retryCount + 1);
                         } else {
                                 throw new RuntimeException("OpenAI API error: " + error);
                         }
