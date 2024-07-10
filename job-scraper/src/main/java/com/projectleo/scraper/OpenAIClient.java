@@ -5,6 +5,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
@@ -38,22 +40,25 @@ public class OpenAIClient {
                         HttpRequest request = createHttpRequest(requestBody);
 
                         logger.info("Sending request to OpenAI");
-                        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                                        .thenApply(response -> {
-                                                if (response.statusCode() != 200) {
-                                                        handleErrorResponse(response);
-                                                }
-                                                OpenAIResponse openAIResponse = deserializeResponse(response.body());
-                                                double requestCost = calculateRequestCost(openAIResponse);
-                                                updateTotalCost(requestCost);
-                                                logger.info("Request cost: ${}, Total cost: ${}", requestCost,
-                                                                totalCost);
-                                                return openAIResponse;
-                                        });
+                        return sendRequestWithRetry(request, 0);
                 } catch (Exception e) {
                         logger.error("Error creating request to OpenAI: {}", e.getMessage(), e);
                         throw new RuntimeException(e);
                 }
+        }
+
+        private CompletableFuture<OpenAIResponse> sendRequestWithRetry(HttpRequest request, int retryCount) {
+                return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                                .thenCompose(response -> {
+                                        if (response.statusCode() != 200) {
+                                                return handleErrorResponse(response, request, retryCount);
+                                        }
+                                        OpenAIResponse openAIResponse = deserializeResponse(response.body());
+                                        double requestCost = calculateRequestCost(openAIResponse);
+                                        updateTotalCost(requestCost);
+                                        logger.info("Request cost: ${}, Total cost: ${}", requestCost, totalCost);
+                                        return CompletableFuture.completedFuture(openAIResponse);
+                                });
         }
 
         private String createRequestBody(String prompt, String description) throws Exception {
@@ -80,14 +85,31 @@ public class OpenAIClient {
                 }
         }
 
-        private void handleErrorResponse(HttpResponse<String> response) {
+        private CompletableFuture<OpenAIResponse> handleErrorResponse(HttpResponse<String> response,
+                        HttpRequest request, int retryCount) {
                 try {
                         OpenAIError error = objectMapper.readValue(response.body(), OpenAIError.class);
-                        logger.error("OpenAI API error: {}", error);
-                        throw new RuntimeException("OpenAI API error: " + error);
+                        logger.debug("OpenAI API error: {}", error.toString());
+
+                        if ("rate_limit_exceeded".equals(error.getError().getCode()) && retryCount < 3) {
+                                // Extract the wait time using regex
+                                String message = error.getError().getMessage();
+                                String regex = "(?<=Please try again in )\\d+(?=ms\\.)";
+                                Pattern pattern = Pattern.compile(regex);
+                                Matcher matcher = pattern.matcher(message);
+                                long waitTime = 1000; // default wait time if no match found
+                                if (matcher.find()) {
+                                        waitTime = Long.parseLong(matcher.group());
+                                }
+                                logger.info("Rate limit exceeded. Retrying in {} ms...", waitTime);
+                                Thread.sleep(waitTime);
+                                return sendRequestWithRetry(request, retryCount + 1);
+                        } else {
+                                throw new RuntimeException("OpenAI API error: " + error);
+                        }
                 } catch (Exception e) {
-                        logger.error("Error deserializing OpenAI error response: {}", response.body(), e);
-                        throw new RuntimeException("Error deserializing OpenAI error response", e);
+                        logger.error("Error handling OpenAI error response: {}", e.getMessage(), e, response.body());
+                        throw new RuntimeException("Error handling OpenAI error response", e);
                 }
         }
 
