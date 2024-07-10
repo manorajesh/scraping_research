@@ -1,6 +1,5 @@
 package com.projectleo.scraper;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -27,18 +26,13 @@ public class JobResult {
 
     private List<String> other;
 
-    @JsonIgnore
-    private double apiCost;
-
     // Constructors
     public JobResult() {
-        this.responsibilities = List.of("N/A");
-        this.qualifications = List.of("N/A");
-        this.other = List.of("N/A");
+        this("N/A", "N/A", "N/A", List.of("N/A"), List.of("N/A"), "N/A", List.of("N/A"));
     }
 
     public JobResult(String company, String jobTitle, String industry, List<String> responsibilities,
-            List<String> qualifications, String location, List<String> other, double apiCost) {
+            List<String> qualifications, String location, List<String> other) {
         this.company = company;
         this.jobTitle = jobTitle;
         this.industry = industry;
@@ -46,7 +40,6 @@ public class JobResult {
         this.qualifications = qualifications;
         this.location = location;
         this.other = other;
-        this.apiCost = apiCost;
     }
 
     // Getters and Setters
@@ -106,14 +99,6 @@ public class JobResult {
         this.other = other;
     }
 
-    public double getApiCost() {
-        return apiCost;
-    }
-
-    public void setApiCost(double apiCost) {
-        this.apiCost = apiCost;
-    }
-
     // Method to create JobResult from partial JSON
     public static JobResult fromImpartialJson(String company, String jobTitle, String location, String jsonStr,
             double apiCost) throws IOException {
@@ -127,8 +112,7 @@ public class JobResult {
                 data.getResponsibilities(),
                 data.getQualifications(),
                 location,
-                List.of("N/A"),
-                apiCost);
+                List.of("N/A"));
     }
 
     // Method to create JobResult from complete JSON

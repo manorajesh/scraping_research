@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
@@ -41,22 +42,30 @@ public class GenericScraper implements Scraper {
                 .collect(Collectors.toList());
 
         String hrefs = String.join(",", links);
-        logger.info("Extracted hrefs: {}", hrefs);
+        logger.debug("Extracted hrefs: {}", hrefs);
+        logger.info("Extracted {} job links from URL: {}", links.size(), url);
 
-        OpenAIResponse openAIResponse = openAIClient.getOpenAIResponse(
+        return openAIClient.getOpenAIResponse(
                 "Of these links, which ones most likely forward to the details of the particular job. Respond only in a valid JSON array of strings:",
-                hrefs).join();
+                hrefs)
+                .thenApply(response -> parseAndResolveJobLinks(response, url));
+    }
 
-        List<String> jobLinks = parseOpenAIResponse(
-                openAIResponse.choices.get(0).message.content.replaceAll("```json", "").replaceAll("```", ""));
-        logger.info("Parsed job links: {}", jobLinks);
+    private List<String> parseAndResolveJobLinks(OpenAIResponse response, String baseUrl) {
+        try {
+            List<String> jobLinks = parseOpenAIResponse(
+                    response.choices.get(0).message.content.replaceAll("```json", "").replaceAll("```", ""));
+            logger.debug("Parsed job links: {}", jobLinks);
+            logger.info("Parsed and resolved {} job links successfully", jobLinks.size());
 
-        // Convert relative links to absolute links
-        jobLinks = jobLinks.stream()
-                .map(link -> URI.create(url).resolve(link).toString())
-                .collect(Collectors.toList());
-
-        return CompletableFuture.completedFuture(jobLinks);
+            // Convert relative links to absolute links
+            return jobLinks.stream()
+                    .map(link -> URI.create(baseUrl).resolve(link).toString())
+                    .collect(Collectors.toList());
+        } catch (RuntimeException e) {
+            logger.error("Error resolving job links: {}", e.getMessage());
+            throw e;
+        }
     }
 
     private List<String> parseOpenAIResponse(String response) {
@@ -64,7 +73,8 @@ public class GenericScraper implements Scraper {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode jsonNode = mapper.readTree(response);
             List<String> jobLinks = jsonNode.isArray()
-                    ? mapper.convertValue(jsonNode, List.class)
+                    ? mapper.convertValue(jsonNode, new TypeReference<List<String>>() {
+                    })
                     : List.of();
             logger.info("Parsed job links: {}", jobLinks);
             return jobLinks;
@@ -86,16 +96,18 @@ public class GenericScraper implements Scraper {
     public CompletableFuture<JobResult> parseJobDetails(String jobDetails) {
         logger.info("Parsing job details");
         String body = Jsoup.parse(jobDetails).body().text();
-        logger.info("Parsed job details: {}", body);
+        logger.debug("HTML body: {}", body);
 
         return openAIClient.getOpenAIResponse(
                 "Can you give me the company (string), jobTitle (string), location (string), industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing in valid JSON. Find as many responsibilities and qualifications as it says:",
                 body)
                 .thenApply(response -> {
                     try {
-                        JobResult jobResult = JobResult.fromCompleteJson(response.choices.get(0).message.content
-                                .replaceAll("```json", "").replaceAll("```", ""), 0.0);
-                        logger.info("Parsed job result: {}", jobResult.asString());
+                        String jsonResponse = response.choices.get(0).message.content
+                                .replaceAll("```json", "").replaceAll("```", "");
+                        JobResult jobResult = JobResult.fromCompleteJson(jsonResponse, 0.0);
+                        logger.debug("Parsed job result: {}", jobResult.asString());
+                        logger.info("Parsed job details successfully: {}", jobResult.toString());
                         return jobResult;
                     } catch (IOException e) {
                         logger.error("Error parsing job details: {}", e.getMessage());

@@ -11,11 +11,17 @@ public class CsvUtil {
     private static final Logger logger = LogManager.getLogger(CsvUtil.class);
 
     public static void writeCsv(String filename, List<JobResult> jobResults) throws IOException {
-        logger.info("Writing job results to CSV file: {}", filename);
+        logger.info("Writing {} job results to CSV file: {}", jobResults.size(), filename);
+
         try (CSVWriter writer = new CSVWriter(new FileWriter(filename))) {
             for (JobResult jobResult : jobResults) {
                 writer.writeNext(jobResult.toCsvRecord().toArray(new String[0]));
             }
+        } catch (IOException e) {
+            logger.error("Error writing to CSV file: {}", filename, e);
+            throw e;
         }
+
+        logger.info("Successfully wrote job results to CSV file: {}", filename);
     }
 }
