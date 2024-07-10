@@ -9,7 +9,10 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.projectleo.scraper.database.CsvUtil;
 import com.projectleo.scraper.openai.OpenAIClient;
+import com.projectleo.scraper.scrapers.GenericScraper;
+import com.projectleo.scraper.scrapers.JobResult;
 
 public class Main {
     private static final Logger logger = LogManager.getLogger(Main.class);

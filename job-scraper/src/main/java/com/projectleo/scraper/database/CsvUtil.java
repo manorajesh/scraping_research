@@ -1,6 +1,8 @@
-package com.projectleo.scraper;
+package com.projectleo.scraper.database;
 
 import com.opencsv.CSVWriter;
+import com.projectleo.scraper.scrapers.JobResult;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;

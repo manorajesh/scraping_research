@@ -1,4 +1,4 @@
-package com.projectleo.scraper;
+package com.projectleo.scraper.scrapers;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -1,4 +1,4 @@
-package com.projectleo.scraper;
+package com.projectleo.scraper.scrapers;
 
 import java.io.IOException;
 import java.net.URI;
