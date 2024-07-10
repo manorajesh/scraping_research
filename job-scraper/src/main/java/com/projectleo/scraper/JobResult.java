@@ -24,22 +24,19 @@ public class JobResult {
     @JsonProperty(defaultValue = "N/A")
     private String location;
 
-    private List<String> other;
-
     // Constructors
     public JobResult() {
-        this("N/A", "N/A", "N/A", List.of("N/A"), List.of("N/A"), "N/A", List.of("N/A"));
+        this("N/A", "N/A", "N/A", List.of("N/A"), List.of("N/A"), "N/A");
     }
 
     public JobResult(String company, String jobTitle, String industry, List<String> responsibilities,
-            List<String> qualifications, String location, List<String> other) {
+            List<String> qualifications, String location) {
         this.company = company;
         this.jobTitle = jobTitle;
         this.industry = industry;
         this.responsibilities = responsibilities;
         this.qualifications = qualifications;
         this.location = location;
-        this.other = other;
     }
 
     // Getters and Setters
@@ -91,14 +88,6 @@ public class JobResult {
         this.location = location;
     }
 
-    public List<String> getOther() {
-        return other;
-    }
-
-    public void setOther(List<String> other) {
-        this.other = other;
-    }
-
     // Method to create JobResult from partial JSON
     public static JobResult fromImpartialJson(String company, String jobTitle, String location, String jsonStr,
             double apiCost) throws IOException {
@@ -111,8 +100,7 @@ public class JobResult {
                 data.getIndustry(),
                 data.getResponsibilities(),
                 data.getQualifications(),
-                location,
-                List.of("N/A"));
+                location);
     }
 
     // Method to create JobResult from complete JSON
@@ -124,8 +112,8 @@ public class JobResult {
     // Method to convert JobResult to string
     public String asString() {
         return String.format(
-                "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications, %d Other",
-                company, jobTitle, industry, location, responsibilities.size(), qualifications.size(), other.size());
+                "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications",
+                company, jobTitle, industry, location, responsibilities.size(), qualifications.size());
     }
 
     // Method to convert JobResult to CSV record
@@ -136,8 +124,7 @@ public class JobResult {
                 industry,
                 formatAsBulletedList(responsibilities),
                 formatAsBulletedList(qualifications),
-                location,
-                formatAsBulletedList(other));
+                location);
     }
 
     // Helper method to format a list as a bulleted list
