@@ -12,6 +12,9 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.projectleo.scraper.openai.OpenAIClient;
+import com.projectleo.scraper.openai.OpenAIResponse;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;

@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.projectleo.scraper.openai.OpenAIClient;
+
 public class Main {
     private static final Logger logger = LogManager.getLogger(Main.class);
     private static final String FILENAME = "jobs.csv";

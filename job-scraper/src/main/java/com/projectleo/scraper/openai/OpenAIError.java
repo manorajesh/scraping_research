@@ -1,4 +1,4 @@
-package com.projectleo.scraper;
+package com.projectleo.scraper.openai;
 
 public class OpenAIError {
     public static class Error {

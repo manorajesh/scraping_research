@@ -1,4 +1,4 @@
-package com.projectleo.scraper;
+package com.projectleo.scraper.openai;
 
 import java.net.URI;
 import java.net.http.HttpClient;

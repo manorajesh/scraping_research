@@ -1,4 +1,4 @@
-package com.projectleo.scraper;
+package com.projectleo.scraper.openai;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
