@@ -102,7 +102,7 @@ public class GenericScraper implements Scraper {
         logger.debug("HTML body: {}", body);
 
         return openAIClient.getOpenAIResponse(
-                "Can you give me the company (string), jobTitle (string), location (string), industry (string), responsibilities (array of strings), and qualifications (array of strings) of this job listing in valid JSON. Find as many responsibilities and qualifications as it says:",
+                "Can you give me the company (string), jobTitle (string), location (string), industry (string), responsibilities (array of strings), qualifications (array of strings), and skills (array of strings) of this job listing in valid JSON. Find as many responsibilities and qualifications as it says. Find the high-level but detailed skills that are relevant to this job:",
                 body)
                 .thenApply(response -> {
                     try {
@@ -110,8 +110,8 @@ public class GenericScraper implements Scraper {
                                 .replaceAll("```json", "").replaceAll("```", "");
                         JobResult jobResult = JobResult.fromCompleteJson(jsonResponse, 0.0);
                         logger.debug("Parsed job result: {}", jobResult.asString());
-                        logger.info("Parsed job details successfully: {} - {}", jobResult.getCompany(),
-                                jobResult.getJobTitle());
+                        logger.info("Parsed job details successfully: {} - {}, {} skills", jobResult.getCompany(),
+                                jobResult.getJobTitle(), jobResult.getSkills().size());
                         return jobResult;
                     } catch (IOException e) {
                         logger.error("Error parsing job details: {}", e.getMessage());

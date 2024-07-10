@@ -26,21 +26,24 @@ public class JobResult {
 
     private List<String> qualifications;
 
+    private List<String> skills;
+
     @JsonProperty(defaultValue = "N/A")
     private String location;
 
     // Constructors
     public JobResult() {
-        this("N/A", "N/A", "N/A", List.of("N/A"), List.of("N/A"), "N/A");
+        this("N/A", "N/A", "N/A", List.of("N/A"), List.of("N/A"), List.of("N/A"), "N/A");
     }
 
     public JobResult(String company, String jobTitle, String industry, List<String> responsibilities,
-            List<String> qualifications, String location) {
+            List<String> qualifications, List<String> skills, String location) {
         this.company = company;
         this.jobTitle = jobTitle;
         this.industry = industry;
         this.responsibilities = responsibilities;
         this.qualifications = qualifications;
+        this.skills = skills;
         this.location = location;
     }
 
@@ -93,6 +96,14 @@ public class JobResult {
         this.qualifications = qualifications;
     }
 
+    public List<String> getSkills() {
+        return skills;
+    }
+
+    public void setSkills(List<String> skills) {
+        this.skills = skills;
+    }
+
     public String getLocation() {
         return location;
     }
@@ -109,8 +120,8 @@ public class JobResult {
 
     public String asString() {
         return String.format(
-                "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications",
-                company, jobTitle, industry, location, responsibilities.size(), qualifications.size());
+                "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications, %d Skills",
+                company, jobTitle, industry, location, responsibilities.size(), qualifications.size(), skills.size());
     }
 
     public List<String> toCsvRecord() {
@@ -120,6 +131,7 @@ public class JobResult {
                 industry,
                 formatAsBulletedList(responsibilities),
                 formatAsBulletedList(qualifications),
+                formatAsBulletedList(skills),
                 location);
     }
 
