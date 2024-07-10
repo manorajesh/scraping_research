@@ -76,7 +76,7 @@ public class GenericScraper implements Scraper {
                     ? mapper.convertValue(jsonNode, new TypeReference<List<String>>() {
                     })
                     : List.of();
-            logger.info("Parsed job links: {}", jobLinks);
+            logger.debug("Parsed job links: {}", jobLinks);
             return jobLinks;
         } catch (IOException e) {
             logger.error("Error parsing OpenAI response: {}", e.getMessage());
@@ -107,7 +107,8 @@ public class GenericScraper implements Scraper {
                                 .replaceAll("```json", "").replaceAll("```", "");
                         JobResult jobResult = JobResult.fromCompleteJson(jsonResponse, 0.0);
                         logger.debug("Parsed job result: {}", jobResult.asString());
-                        logger.info("Parsed job details successfully: {}", jobResult.toString());
+                        logger.info("Parsed job details successfully: {} - {}", jobResult.getCompany(),
+                                jobResult.getJobTitle());
                         return jobResult;
                     } catch (IOException e) {
                         logger.error("Error parsing job details: {}", e.getMessage());
