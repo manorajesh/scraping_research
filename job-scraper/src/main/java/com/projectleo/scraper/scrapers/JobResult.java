@@ -1,13 +1,18 @@
 package com.projectleo.scraper.scrapers;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class JobResult {
+    @JsonIgnore
+    private MessageDigest jobLinkHash;
+
     @JsonProperty(defaultValue = "N/A")
     private String company;
 
@@ -40,6 +45,14 @@ public class JobResult {
     }
 
     // Getters and Setters
+    public MessageDigest getJobLinkHash() {
+        return jobLinkHash;
+    }
+
+    public void setJobLinkHash(MessageDigest jobLinkHash) {
+        this.jobLinkHash = jobLinkHash;
+    }
+
     public String getCompany() {
         return company;
     }
@@ -88,35 +101,18 @@ public class JobResult {
         this.location = location;
     }
 
-    // Method to create JobResult from partial JSON
-    public static JobResult fromImpartialJson(String company, String jobTitle, String location, String jsonStr,
-            double apiCost) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        PartialJobData data = mapper.readValue(jsonStr, PartialJobData.class);
-
-        return new JobResult(
-                company,
-                jobTitle,
-                data.getIndustry(),
-                data.getResponsibilities(),
-                data.getQualifications(),
-                location);
-    }
-
     // Method to create JobResult from complete JSON
     public static JobResult fromCompleteJson(String jsonStr, double apiCost) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         return mapper.readValue(jsonStr, JobResult.class);
     }
 
-    // Method to convert JobResult to string
     public String asString() {
         return String.format(
                 "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications",
                 company, jobTitle, industry, location, responsibilities.size(), qualifications.size());
     }
 
-    // Method to convert JobResult to CSV record
     public List<String> toCsvRecord() {
         return List.of(
                 company,
@@ -127,42 +123,9 @@ public class JobResult {
                 location);
     }
 
-    // Helper method to format a list as a bulleted list
     private String formatAsBulletedList(List<String> items) {
         return items.stream()
                 .map(item -> "• " + item)
                 .collect(Collectors.joining("\n"));
-    }
-
-    // Inner class to map partial job data
-    private static class PartialJobData {
-        private String industry;
-        private List<String> responsibilities;
-        private List<String> qualifications;
-
-        // Getters and Setters
-        public String getIndustry() {
-            return industry;
-        }
-
-        public void setIndustry(String industry) {
-            this.industry = industry;
-        }
-
-        public List<String> getResponsibilities() {
-            return responsibilities;
-        }
-
-        public void setResponsibilities(List<String> responsibilities) {
-            this.responsibilities = responsibilities;
-        }
-
-        public List<String> getQualifications() {
-            return qualifications;
-        }
-
-        public void setQualifications(List<String> qualifications) {
-            this.qualifications = qualifications;
-        }
     }
 }
