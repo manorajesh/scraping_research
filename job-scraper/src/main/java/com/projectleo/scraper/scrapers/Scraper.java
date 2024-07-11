@@ -8,5 +8,5 @@ public interface Scraper {
 
   CompletableFuture<String> fetchJobDetails(String jobLink);
 
-  CompletableFuture<JobResult> parseJobDetails(String jobDetails);
+  CompletableFuture<JobResult> parseJobDetails(String jobDetails, String jobLink);
 }

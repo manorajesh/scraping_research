@@ -5,11 +5,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class JobResult {
-  @JsonIgnore private MessageDigest jobLinkHash;
+  @JsonIgnore private byte[] jobLinkHash;
 
   @JsonProperty(defaultValue = "N/A")
   private String company;
@@ -52,12 +53,20 @@ public class JobResult {
   }
 
   // Getters and Setters
-  public MessageDigest getJobLinkHash() {
+  public byte[] getJobLinkHash() {
+    if (jobLinkHash == null) {
+      throw new IllegalStateException("Job link hash has not been set");
+    }
     return jobLinkHash;
   }
 
-  public void setJobLinkHash(MessageDigest jobLinkHash) {
-    this.jobLinkHash = jobLinkHash;
+  public void setJobLinkHash(String jobLink) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      this.jobLinkHash = digest.digest(jobLink.getBytes());
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public String getCompany() {
@@ -117,7 +126,7 @@ public class JobResult {
   }
 
   // Method to create JobResult from complete JSON
-  public static JobResult fromCompleteJson(String jsonStr, double apiCost) throws IOException {
+  public static JobResult fromCompleteJson(String jsonStr) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     return mapper.readValue(jsonStr, JobResult.class);
   }

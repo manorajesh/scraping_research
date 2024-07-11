@@ -1,6 +1,7 @@
 package com.projectleo.scraper.openai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.projectleo.scraper.util.PropertiesUtil;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -13,7 +14,7 @@ import org.apache.logging.log4j.Logger;
 
 public class OpenAIClient {
   private static final Logger logger = LogManager.getLogger(OpenAIClient.class);
-  private static final String API_KEY = System.getenv("OPENAI_API_KEY");
+  private static final String API_KEY = PropertiesUtil.getProperty("openai.api.key");
   private static final double PROMPT_TOKEN_PRICE = 0.0000005;
   private static final double COMPLETION_TOKEN_PRICE = 0.0000015;
 

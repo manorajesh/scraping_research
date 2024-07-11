@@ -1,10 +1,9 @@
 package com.projectleo.scraper;
 
-import com.projectleo.scraper.database.CsvUtil;
+import com.projectleo.scraper.database.Database;
 import com.projectleo.scraper.openai.OpenAIClient;
 import com.projectleo.scraper.scrapers.GenericScraper;
 import com.projectleo.scraper.scrapers.JobResult;
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -15,7 +14,6 @@ import org.apache.logging.log4j.Logger;
 
 public class Main {
   private static final Logger logger = LogManager.getLogger(Main.class);
-  private static final String FILENAME = "jobs.csv";
   private static final List<String> COMPANY_URLS =
       List.of(
           "https://boards.greenhouse.io/radiant",
@@ -30,14 +28,15 @@ public class Main {
           "https://jobs.netflix.com/search");
 
   public static void main(String[] args) {
-    try (ExecutorService executor = Executors.newFixedThreadPool(10)) {
+    try (ExecutorService executor = Executors.newFixedThreadPool(10);
+        Database database = new Database()) {
       Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdown));
 
-      GenericScraper scraper = new GenericScraper();
+      GenericScraper scraper = new GenericScraper(database);
 
       List<CompletableFuture<Void>> companyFutures =
           COMPANY_URLS.stream()
-              .map(companyUrl -> processCompany(scraper, companyUrl))
+              .map(companyUrl -> processCompany(scraper, companyUrl, database))
               .collect(Collectors.toList());
 
       CompletableFuture.allOf(companyFutures.toArray(new CompletableFuture[0])).join();
@@ -48,11 +47,12 @@ public class Main {
     logger.info("Total cost of running the program: ${}", totalCost);
   }
 
-  private static CompletableFuture<Void> processCompany(GenericScraper scraper, String companyUrl) {
+  private static CompletableFuture<Void> processCompany(
+      GenericScraper scraper, String companyUrl, Database database) {
     return scraper
         .fetchJobLinks(companyUrl)
         .thenCompose(jobLinks -> fetchAndParseJobDetails(scraper, jobLinks))
-        .thenAccept(jobResults -> writeJobResultsToCsv(jobResults, companyUrl))
+        .thenAccept(jobResults -> writeJobResultsToDatabase(jobResults, database))
         .exceptionally(
             ex -> {
               logger.error("Error processing URL {}: {}", companyUrl, ex.getMessage());
@@ -64,8 +64,11 @@ public class Main {
       GenericScraper scraper, List<String> jobLinks) {
     List<CompletableFuture<JobResult>> jobResultFutures =
         jobLinks.stream()
-            .map(scraper::fetchJobDetails)
-            .map(jobDetailsFuture -> jobDetailsFuture.thenCompose(scraper::parseJobDetails))
+            .map(
+                jobLink ->
+                    scraper
+                        .fetchJobDetails(jobLink)
+                        .thenCompose(jobDetails -> scraper.parseJobDetails(jobDetails, jobLink)))
             .collect(Collectors.toList());
 
     return CompletableFuture.allOf(jobResultFutures.toArray(new CompletableFuture[0]))
@@ -76,13 +79,9 @@ public class Main {
                     .collect(Collectors.toList()));
   }
 
-  private static void writeJobResultsToCsv(List<JobResult> jobResults, String companyUrl) {
+  private static void writeJobResultsToDatabase(List<JobResult> jobResults, Database database) {
     synchronized (Main.class) {
-      try {
-        CsvUtil.writeCsv(FILENAME, jobResults);
-      } catch (IOException e) {
-        logger.error("Error writing CSV file for URL {}: {}", companyUrl, e.getMessage());
-      }
+      database.writeToDatabase(jobResults);
     }
   }
 }

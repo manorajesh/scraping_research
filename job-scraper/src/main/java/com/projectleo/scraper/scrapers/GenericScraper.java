@@ -3,6 +3,7 @@ package com.projectleo.scraper.scrapers;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.projectleo.scraper.database.Database;
 import com.projectleo.scraper.openai.OpenAIClient;
 import com.projectleo.scraper.openai.OpenAIResponse;
 import java.io.IOException;
@@ -10,6 +11,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -21,10 +25,12 @@ public class GenericScraper implements Scraper {
   private static final Logger logger = LogManager.getLogger(GenericScraper.class);
   private final HttpClient client;
   private final OpenAIClient openAIClient;
+  private final Database database;
 
-  public GenericScraper() {
+  public GenericScraper(Database database) {
     this.client = HttpClient.newHttpClient();
     this.openAIClient = new OpenAIClient();
+    this.database = database;
   }
 
   @Override
@@ -70,9 +76,13 @@ public class GenericScraper implements Scraper {
       logger.info("Parsed and resolved {} job links successfully", jobLinks.size());
 
       // Convert relative links to absolute links
-      return jobLinks.stream()
-          .map(link -> URI.create(baseUrl).resolve(link).toString())
-          .collect(Collectors.toList());
+      List<String> resolvedJobLinks =
+          jobLinks.stream()
+              .map(link -> URI.create(baseUrl).resolve(link).toString())
+              .collect(Collectors.toList());
+
+      // Filter out job links that already exist in the database
+      return filterUniqueJobLinks(resolvedJobLinks);
     } catch (RuntimeException e) {
       logger.error("Error resolving job links: {}", e.getMessage());
       throw e;
@@ -95,6 +105,28 @@ public class GenericScraper implements Scraper {
     }
   }
 
+  private List<String> filterUniqueJobLinks(List<String> jobLinks) {
+    List<String> uniqueJobLinks = new ArrayList<>();
+    for (String jobLink : jobLinks) {
+      byte[] jobLinkHash = generateJobLinkHash(jobLink);
+      if (!database.jobLinkExists(jobLinkHash)) {
+        uniqueJobLinks.add(jobLink);
+      } else {
+        logger.info("Job link already exists in database: {}. Skipping...", jobLink);
+      }
+    }
+    return uniqueJobLinks;
+  }
+
+  private byte[] generateJobLinkHash(String jobLink) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return digest.digest(jobLink.getBytes());
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   @Override
   public CompletableFuture<String> fetchJobDetails(String jobLink) {
     logger.info("Fetching job details from link: {}", jobLink);
@@ -106,7 +138,7 @@ public class GenericScraper implements Scraper {
   }
 
   @Override
-  public CompletableFuture<JobResult> parseJobDetails(String jobDetails) {
+  public CompletableFuture<JobResult> parseJobDetails(String jobDetails, String jobLink) {
     logger.info("Parsing job details");
     String body = Jsoup.parse(jobDetails).body().text();
     logger.debug("HTML body: {}", body);
@@ -130,7 +162,8 @@ public class GenericScraper implements Scraper {
                         .content
                         .replaceAll("```json", "")
                         .replaceAll("```", "");
-                JobResult jobResult = JobResult.fromCompleteJson(jsonResponse, 0.0);
+                JobResult jobResult = JobResult.fromCompleteJson(jsonResponse);
+                jobResult.setJobLinkHash(jobLink);
                 logger.debug("Parsed job result: {}", jobResult.asString());
                 logger.info(
                     "Parsed job details successfully: {} - {}, {} skills",

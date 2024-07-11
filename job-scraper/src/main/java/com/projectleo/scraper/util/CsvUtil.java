@@ -1,4 +1,4 @@
-package com.projectleo.scraper.database;
+package com.projectleo.scraper.util;
 
 import com.opencsv.CSVWriter;
 import com.projectleo.scraper.scrapers.JobResult;
