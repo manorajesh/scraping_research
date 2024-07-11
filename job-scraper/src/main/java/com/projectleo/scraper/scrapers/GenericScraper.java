@@ -27,7 +27,7 @@ public class GenericScraper implements Scraper {
   private final HttpClient client;
   private final OpenAIClient openAIClient;
   private final Database database;
-  private static final int MAX_CONCURRENT_REQUESTS = 100;
+  private static final int MAX_CONCURRENT_REQUESTS = 200;
   private final Semaphore semaphore = new Semaphore(MAX_CONCURRENT_REQUESTS);
 
   // Maximum number of job links to fetch per company
@@ -43,11 +43,17 @@ public class GenericScraper implements Scraper {
   @Override
   public CompletableFuture<List<String>> fetchJobLinks(String url) {
     logger.info("Fetching job links from URL: {}", url);
-    return CompletableFuture.runAsync(
+    return CompletableFuture.supplyAsync(
             () -> {
               try {
+                logger.debug("Available permits before acquire: {}", semaphore.availablePermits());
                 semaphore.acquire();
+                logger.debug(
+                    "Semaphore acquired for fetching job links, available permits: {}",
+                    semaphore.availablePermits());
+                return null;
               } catch (InterruptedException e) {
+                logger.error("Semaphore acquisition interrupted", e);
                 throw new RuntimeException(e);
               }
             })
@@ -58,7 +64,18 @@ public class GenericScraper implements Scraper {
                     HttpResponse.BodyHandlers.ofString()))
         .thenApply(HttpResponse::body)
         .thenCompose(responseBody -> extractJobLinks(responseBody, url))
-        .whenComplete((result, error) -> semaphore.release());
+        .handle(
+            (result, error) -> {
+              semaphore.release();
+              logger.debug(
+                  "Semaphore released after fetching job links, available permits: {}",
+                  semaphore.availablePermits());
+              if (error != null) {
+                logger.error("Error during job link fetch", error);
+                throw new RuntimeException(error);
+              }
+              return result;
+            });
   }
 
   private CompletableFuture<List<String>> extractJobLinks(String responseBody, String url) {
@@ -148,11 +165,17 @@ public class GenericScraper implements Scraper {
   @Override
   public CompletableFuture<String> fetchJobDetails(String jobLink) {
     logger.info("Fetching job details from link: {}", jobLink);
-    return CompletableFuture.runAsync(
+    return CompletableFuture.supplyAsync(
             () -> {
               try {
+                logger.debug("Available permits before acquire: {}", semaphore.availablePermits());
                 semaphore.acquire();
+                logger.debug(
+                    "Semaphore acquired for fetching job details, available permits: {}",
+                    semaphore.availablePermits());
+                return null;
               } catch (InterruptedException e) {
+                logger.error("Semaphore acquisition interrupted", e);
                 throw new RuntimeException(e);
               }
             })
@@ -162,7 +185,18 @@ public class GenericScraper implements Scraper {
                     HttpRequest.newBuilder(URI.create(jobLink)).build(),
                     HttpResponse.BodyHandlers.ofString()))
         .thenApply(HttpResponse::body)
-        .whenComplete((result, error) -> semaphore.release());
+        .handle(
+            (result, error) -> {
+              semaphore.release();
+              logger.debug(
+                  "Semaphore released after fetching job details, available permits: {}",
+                  semaphore.availablePermits());
+              if (error != null) {
+                logger.error("Error during job detail fetch", error);
+                throw new RuntimeException(error);
+              }
+              return result;
+            });
   }
 
   @Override

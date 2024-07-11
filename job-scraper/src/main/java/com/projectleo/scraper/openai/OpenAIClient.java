@@ -17,6 +17,7 @@ public class OpenAIClient {
   private static final String API_KEY = PropertiesUtil.getProperty("openai.api.key");
   private static final double PROMPT_TOKEN_PRICE = 0.0000005;
   private static final double COMPLETION_TOKEN_PRICE = 0.0000015;
+  private static final int MAX_RETRIES = 3;
 
   private static double totalCost = 0.0;
 
@@ -96,22 +97,26 @@ public class OpenAIClient {
       OpenAIError error = objectMapper.readValue(response.body(), OpenAIError.class);
       logger.debug("OpenAI API error: {}", error.toString());
 
-      if ("rate_limit_exceeded".equals(error.getError().getCode()) && retryCount < 3) {
+      if ("rate_limit_exceeded".equals(error.getError().getCode()) && retryCount < MAX_RETRIES) {
         // Extract the wait time using regex
         String message = error.getError().getMessage();
-        String regex = "(?<=Please try again in )\\d+(?=ms\\.)";
+        String regex = "(?<=Please try again in )\\d+";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(message);
         long waitTime = 1000; // default wait time if no match found
         if (matcher.find()) {
           waitTime = Long.parseLong(matcher.group());
         }
+        if (message.contains(" s")) { // Convert seconds to milliseconds
+          waitTime *= 1000;
+        }
+
         logger.info("Rate limit exceeded. Retrying in {} ms...", waitTime);
         Thread.sleep(waitTime);
         return sendRequestWithRetry(request, retryCount + 1);
-      } else if (retryCount == 3) {
-        throw new RuntimeException("Retry limit reached.");
-      } else if (retryCount < 3) {
+      } else if (retryCount == MAX_RETRIES) {
+        throw new RuntimeException("Retry limit reached - " + MAX_RETRIES);
+      } else if (retryCount < MAX_RETRIES) {
         logger.error("OpenAI API error: {}", error.getError().getMessage());
         logger.info("Retrying request...");
         return sendRequestWithRetry(request, retryCount + 1);
@@ -120,7 +125,7 @@ public class OpenAIClient {
       }
     } catch (Exception e) {
       logger.error("Error handling OpenAI error response: {}", e.getMessage(), e, response.body());
-      throw new RuntimeException("Error handling OpenAI error response", e);
+      throw new RuntimeException("Error handling OpenAI error response: " + response.body(), e);
     }
   }
 
