@@ -66,6 +66,13 @@
       <artifactId>mysql-connector-j</artifactId>
       <version>9.0.0</version>
     </dependency>
+    <!-- OkHttp for HTTP requests -->
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>4.12.0</version>
+    </dependency>
+
   </dependencies>
 
   <build>

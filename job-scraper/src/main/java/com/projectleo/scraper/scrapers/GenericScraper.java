@@ -7,34 +7,31 @@ import com.projectleo.scraper.openai.OpenAIClient;
 import com.projectleo.scraper.openai.OpenAIResponse;
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 
 public class GenericScraper implements Scraper {
   private static final Logger logger = LogManager.getLogger(GenericScraper.class);
-  private final HttpClient client;
+  private final OkHttpClient client;
   private final OpenAIClient openAIClient;
   private final Database database;
-  private static final int MAX_CONCURRENT_REQUESTS = 200;
-  private final Semaphore semaphore = new Semaphore(MAX_CONCURRENT_REQUESTS);
 
   // Maximum number of job links to fetch per company
   private final int maxCompanyJobLinks;
 
   public GenericScraper(Database database, int maxCompanyJobLinks) {
-    this.client = HttpClient.newHttpClient();
+    this.client = new OkHttpClient();
     this.openAIClient = new OpenAIClient();
     this.database = database;
     this.maxCompanyJobLinks = maxCompanyJobLinks;
@@ -43,39 +40,22 @@ public class GenericScraper implements Scraper {
   @Override
   public CompletableFuture<List<String>> fetchJobLinks(String url) {
     logger.info("Fetching job links from URL: {}", url);
+
     return CompletableFuture.supplyAsync(
             () -> {
-              try {
-                logger.debug("Available permits before acquire: {}", semaphore.availablePermits());
-                semaphore.acquire();
-                logger.debug(
-                    "Semaphore acquired for fetching job links, available permits: {}",
-                    semaphore.availablePermits());
-                return null;
-              } catch (InterruptedException e) {
-                logger.error("Semaphore acquisition interrupted", e);
+              Request request = new Request.Builder().url(url).build();
+
+              try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                  throw new IOException("Unexpected code " + response);
+                }
+                return response.body().string();
+              } catch (IOException e) {
+                logger.error("Error during job link fetch", e);
                 throw new RuntimeException(e);
               }
             })
-        .thenCompose(
-            ignored ->
-                client.sendAsync(
-                    HttpRequest.newBuilder(URI.create(url)).build(),
-                    HttpResponse.BodyHandlers.ofString()))
-        .thenApply(HttpResponse::body)
-        .thenCompose(responseBody -> extractJobLinks(responseBody, url))
-        .handle(
-            (result, error) -> {
-              semaphore.release();
-              logger.debug(
-                  "Semaphore released after fetching job links, available permits: {}",
-                  semaphore.availablePermits());
-              if (error != null) {
-                logger.error("Error during job link fetch", error);
-                throw new RuntimeException(error);
-              }
-              return result;
-            });
+        .thenCompose(responseBody -> extractJobLinks(responseBody, url));
   }
 
   private CompletableFuture<List<String>> extractJobLinks(String responseBody, String url) {
@@ -165,38 +145,21 @@ public class GenericScraper implements Scraper {
   @Override
   public CompletableFuture<String> fetchJobDetails(String jobLink) {
     logger.info("Fetching job details from link: {}", jobLink);
+
     return CompletableFuture.supplyAsync(
-            () -> {
-              try {
-                logger.debug("Available permits before acquire: {}", semaphore.availablePermits());
-                semaphore.acquire();
-                logger.debug(
-                    "Semaphore acquired for fetching job details, available permits: {}",
-                    semaphore.availablePermits());
-                return null;
-              } catch (InterruptedException e) {
-                logger.error("Semaphore acquisition interrupted", e);
-                throw new RuntimeException(e);
-              }
-            })
-        .thenCompose(
-            ignored ->
-                client.sendAsync(
-                    HttpRequest.newBuilder(URI.create(jobLink)).build(),
-                    HttpResponse.BodyHandlers.ofString()))
-        .thenApply(HttpResponse::body)
-        .handle(
-            (result, error) -> {
-              semaphore.release();
-              logger.debug(
-                  "Semaphore released after fetching job details, available permits: {}",
-                  semaphore.availablePermits());
-              if (error != null) {
-                logger.error("Error during job detail fetch", error);
-                throw new RuntimeException(error);
-              }
-              return result;
-            });
+        () -> {
+          Request request = new Request.Builder().url(jobLink).build();
+
+          try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+              throw new IOException("Unexpected code " + response);
+            }
+            return response.body().string();
+          } catch (IOException e) {
+            logger.error("Error during job detail fetch", e);
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   @Override
