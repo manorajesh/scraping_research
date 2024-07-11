@@ -18,6 +18,7 @@ public class OpenAIClient {
   private static final double PROMPT_TOKEN_PRICE = 0.0000005;
   private static final double COMPLETION_TOKEN_PRICE = 0.0000015;
   private static final int MAX_RETRIES = 3;
+  private static final int RATE_LIMIT_MINIMUM_WAIT_TIME = 1000;
 
   private static double totalCost = 0.0;
 
@@ -105,7 +106,7 @@ public class OpenAIClient {
         Matcher matcher = pattern.matcher(message);
         long waitTime = 1000; // default wait time if no match found
         if (matcher.find()) {
-          waitTime = Long.parseLong(matcher.group());
+          waitTime = Long.parseLong(matcher.group()) + RATE_LIMIT_MINIMUM_WAIT_TIME;
         }
         if (message.contains(" s")) { // Convert seconds to milliseconds
           waitTime *= 1000;
