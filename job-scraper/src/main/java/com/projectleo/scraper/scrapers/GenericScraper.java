@@ -1,6 +1,5 @@
 package com.projectleo.scraper.scrapers;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.projectleo.scraper.database.Database;
@@ -58,25 +57,23 @@ public class GenericScraper implements Scraper {
 
     return openAIClient
         .getOpenAIResponse(
-            "Of these links, which ones most likely forward to the details of the particular job."
-                + " Respond only in a valid JSON array of strings:",
+            "What is the valid, escaped, concise regex pattern that would match all the following"
+                + " hrefs that forward to their respective job details site. Respond in JSON with"
+                + " the key being \"regex_pattern\"",
             hrefs)
-        .thenApply(response -> parseAndResolveJobLinks(response, url));
+        .thenApply(response -> parseAndResolveJobLinks(response, links, url));
   }
 
-  private List<String> parseAndResolveJobLinks(OpenAIResponse response, String baseUrl) {
+  private List<String> parseAndResolveJobLinks(
+      OpenAIResponse response, List<String> links, String baseUrl) {
     try {
+      String regexPattern = parseOpenAIResponse(response.choices.get(0).message.content);
+      logger.debug("Parsed regex pattern: {}", regexPattern);
+
       List<String> jobLinks =
-          parseOpenAIResponse(
-              response
-                  .choices
-                  .get(0)
-                  .message
-                  .content
-                  .replaceAll("```json", "")
-                  .replaceAll("```", ""));
-      logger.debug("Parsed job links: {}", jobLinks);
-      logger.info("Parsed and resolved {} job links successfully", jobLinks.size());
+          links.stream().filter(link -> link.matches(regexPattern)).collect(Collectors.toList());
+      logger.debug("Filtered job links: {}", jobLinks);
+      logger.info("Filtered and resolved {} job links successfully", jobLinks.size());
 
       // Convert relative links to absolute links
       List<String> resolvedJobLinks =
@@ -92,16 +89,11 @@ public class GenericScraper implements Scraper {
     }
   }
 
-  private List<String> parseOpenAIResponse(String response) {
+  private String parseOpenAIResponse(String response) {
     try {
       ObjectMapper mapper = new ObjectMapper();
       JsonNode jsonNode = mapper.readTree(response);
-      List<String> jobLinks =
-          jsonNode.isArray()
-              ? mapper.convertValue(jsonNode, new TypeReference<List<String>>() {})
-              : List.of();
-      logger.debug("Parsed job links: {}", jobLinks);
-      return jobLinks;
+      return jsonNode.get("regex_pattern").asText();
     } catch (IOException e) {
       logger.error("Error parsing OpenAI response: {}", e.getMessage());
       throw new RuntimeException(e);
@@ -150,7 +142,7 @@ public class GenericScraper implements Scraper {
   public CompletableFuture<JobResult> parseJobDetails(String jobDetails, String jobLink) {
     logger.info("Parsing job details");
     String body = Jsoup.parse(jobDetails).body().text();
-    logger.debug("HTML body: {}", body);
+    logger.trace("HTML body at url {}: {}", jobLink, body);
 
     return openAIClient
         .getOpenAIResponse(
