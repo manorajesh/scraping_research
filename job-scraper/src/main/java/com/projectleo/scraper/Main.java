@@ -32,7 +32,7 @@ public class Main {
         Database database = new Database()) {
       Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdown));
 
-      GenericScraper scraper = new GenericScraper(database);
+      GenericScraper scraper = new GenericScraper(database, 100);
 
       List<CompletableFuture<Void>> companyFutures =
           companyUrls.stream()

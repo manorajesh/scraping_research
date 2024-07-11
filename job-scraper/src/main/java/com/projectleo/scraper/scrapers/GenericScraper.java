@@ -26,11 +26,14 @@ public class GenericScraper implements Scraper {
   private final HttpClient client;
   private final OpenAIClient openAIClient;
   private final Database database;
+  // Maximum number of job links to fetch per company
+  private final int maxCompanyJobLinks;
 
-  public GenericScraper(Database database) {
+  public GenericScraper(Database database, int maxCompanyJobLinks) {
     this.client = HttpClient.newHttpClient();
     this.openAIClient = new OpenAIClient();
     this.database = database;
+    this.maxCompanyJobLinks = maxCompanyJobLinks;
   }
 
   @Override
@@ -114,6 +117,12 @@ public class GenericScraper implements Scraper {
       } else {
         logger.info("Job link already exists in database: {}. Skipping...", jobLink);
       }
+    }
+
+    // Limit the number of job links to fetch per company
+    if (uniqueJobLinks.size() > maxCompanyJobLinks) {
+      logger.info("Limiting job links to {} from {}", maxCompanyJobLinks, uniqueJobLinks.size());
+      return uniqueJobLinks.subList(0, maxCompanyJobLinks);
     }
     return uniqueJobLinks;
   }
