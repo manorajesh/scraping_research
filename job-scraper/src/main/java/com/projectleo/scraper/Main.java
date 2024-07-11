@@ -4,6 +4,8 @@ import com.projectleo.scraper.database.Database;
 import com.projectleo.scraper.openai.OpenAIClient;
 import com.projectleo.scraper.scrapers.GenericScraper;
 import com.projectleo.scraper.scrapers.JobResult;
+import com.projectleo.scraper.util.FileUtil;
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -14,20 +16,18 @@ import org.apache.logging.log4j.Logger;
 
 public class Main {
   private static final Logger logger = LogManager.getLogger(Main.class);
-  private static final List<String> COMPANY_URLS =
-      List.of(
-          "https://boards.greenhouse.io/radiant",
-          "https://jobs.lever.co/make-rain",
-          "https://us241.dayforcehcm.com/CandidatePortal/en-US/nantmedia",
-          "https://boards.greenhouse.io/goguardian",
-          "https://jobs.lever.co/ablspacesystems",
-          "https://jobs.mattel.com/en/search-jobs/El%20Segundo%2C%20CA/",
-          "https://www.spacex.com/careers/jobs?location=hawthorne%252C%2520ca",
-          "https://www.disneycareers.com/en/search-jobs/Los%20Angeles%2C%20CA",
-          "https://jobs.boeing.com/search-jobs/El%20Segundo%2C%20CA/",
-          "https://jobs.netflix.com/search");
+  private static final String COMPANY_URLS_FILE = "company_urls.txt";
 
   public static void main(String[] args) {
+    List<String> companyUrls;
+
+    try {
+      companyUrls = FileUtil.readLines(COMPANY_URLS_FILE);
+    } catch (IOException e) {
+      logger.error("Failed to read company URLs from file: {}", e.getMessage());
+      return;
+    }
+
     try (ExecutorService executor = Executors.newFixedThreadPool(10);
         Database database = new Database()) {
       Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdown));
@@ -35,7 +35,7 @@ public class Main {
       GenericScraper scraper = new GenericScraper(database);
 
       List<CompletableFuture<Void>> companyFutures =
-          COMPANY_URLS.stream()
+          companyUrls.stream()
               .map(companyUrl -> processCompany(scraper, companyUrl, database))
               .collect(Collectors.toList());
 
