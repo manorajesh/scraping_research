@@ -50,7 +50,7 @@ public class Database implements AutoCloseable {
       }
       insertStmt.executeBatch();
       logger.info("Successfully wrote job results to database");
-    } catch (SQLException e) {
+    } catch (Exception e) {
       logger.error("Error writing to database: {}", e.getMessage());
     }
   }
