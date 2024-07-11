@@ -45,6 +45,7 @@ public class Database implements AutoCloseable {
         insertStmt.setString(6, String.join("|", jobResult.getSkills()));
         insertStmt.setString(7, jobResult.getLocation());
         insertStmt.setBytes(8, jobResult.getJobLinkHash());
+        // TODO: Not setting timestamp in code. Field has CURRENT_TIMESTAMP as default value
         insertStmt.addBatch();
       }
       insertStmt.executeBatch();

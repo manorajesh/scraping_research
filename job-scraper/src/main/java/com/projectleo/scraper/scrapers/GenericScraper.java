@@ -166,6 +166,8 @@ public class GenericScraper implements Scraper {
                         .replaceAll("```", "");
                 JobResult jobResult = JobResult.fromCompleteJson(jsonResponse);
                 jobResult.setJobLinkHash(jobLink);
+                // TODO: This doesn't write to database. CURRENT_TIMESTAMP is default value
+                jobResult.setTimestamp(LocalDateTime.now());
                 logger.debug("Parsed job result: {}", jobResult.asString());
                 logger.info(
                     "Parsed job details successfully: {} - {}, {} skills",

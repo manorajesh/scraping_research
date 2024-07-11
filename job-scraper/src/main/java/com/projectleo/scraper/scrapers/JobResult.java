@@ -6,11 +6,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class JobResult {
   @JsonIgnore private byte[] jobLinkHash;
+
+  @JsonIgnore private LocalDateTime timestamp;
 
   @JsonProperty(defaultValue = "N/A")
   private String company;
@@ -32,7 +36,15 @@ public class JobResult {
 
   // Constructors
   public JobResult() {
-    this("N/A", "N/A", "N/A", List.of("N/A"), List.of("N/A"), List.of("N/A"), "N/A");
+    this(
+        "N/A",
+        "N/A",
+        "N/A",
+        List.of("N/A"),
+        List.of("N/A"),
+        List.of("N/A"),
+        "N/A",
+        LocalDateTime.now());
   }
 
   public JobResult(
@@ -42,7 +54,8 @@ public class JobResult {
       List<String> responsibilities,
       List<String> qualifications,
       List<String> skills,
-      String location) {
+      String location,
+      LocalDateTime timestamp) {
     this.company = company;
     this.jobTitle = jobTitle;
     this.industry = industry;
@@ -50,6 +63,7 @@ public class JobResult {
     this.qualifications = qualifications;
     this.skills = skills;
     this.location = location;
+    this.timestamp = timestamp;
   }
 
   // Getters and Setters
@@ -125,6 +139,14 @@ public class JobResult {
     this.location = location;
   }
 
+  public LocalDateTime getTimestamp() {
+    return timestamp;
+  }
+
+  public void setTimestamp(LocalDateTime timestamp) {
+    this.timestamp = timestamp;
+  }
+
   // Method to create JobResult from complete JSON
   public static JobResult fromCompleteJson(String jsonStr) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
@@ -133,14 +155,15 @@ public class JobResult {
 
   public String asString() {
     return String.format(
-        "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications, %d Skills",
+        "%s - %s - %s @ %s: %d Responsibilities, %d Qualifications, %d Skills, Timestamp: %s",
         company,
         jobTitle,
         industry,
         location,
         responsibilities.size(),
         qualifications.size(),
-        skills.size());
+        skills.size(),
+        timestamp.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
   }
 
   public List<String> toCsvRecord() {
@@ -151,7 +174,8 @@ public class JobResult {
         formatAsBulletedList(responsibilities),
         formatAsBulletedList(qualifications),
         formatAsBulletedList(skills),
-        location);
+        location,
+        timestamp.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
   }
 
   private String formatAsBulletedList(List<String> items) {
