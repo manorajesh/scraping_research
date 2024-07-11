@@ -12,9 +12,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,6 +27,9 @@ public class GenericScraper implements Scraper {
   private final HttpClient client;
   private final OpenAIClient openAIClient;
   private final Database database;
+  private static final int MAX_CONCURRENT_REQUESTS = 100;
+  private final Semaphore semaphore = new Semaphore(MAX_CONCURRENT_REQUESTS);
+
   // Maximum number of job links to fetch per company
   private final int maxCompanyJobLinks;
 
@@ -38,11 +43,22 @@ public class GenericScraper implements Scraper {
   @Override
   public CompletableFuture<List<String>> fetchJobLinks(String url) {
     logger.info("Fetching job links from URL: {}", url);
-    return client
-        .sendAsync(
-            HttpRequest.newBuilder(URI.create(url)).build(), HttpResponse.BodyHandlers.ofString())
+    return CompletableFuture.runAsync(
+            () -> {
+              try {
+                semaphore.acquire();
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .thenCompose(
+            ignored ->
+                client.sendAsync(
+                    HttpRequest.newBuilder(URI.create(url)).build(),
+                    HttpResponse.BodyHandlers.ofString()))
         .thenApply(HttpResponse::body)
-        .thenCompose(responseBody -> extractJobLinks(responseBody, url));
+        .thenCompose(responseBody -> extractJobLinks(responseBody, url))
+        .whenComplete((result, error) -> semaphore.release());
   }
 
   private CompletableFuture<List<String>> extractJobLinks(String responseBody, String url) {
@@ -132,11 +148,21 @@ public class GenericScraper implements Scraper {
   @Override
   public CompletableFuture<String> fetchJobDetails(String jobLink) {
     logger.info("Fetching job details from link: {}", jobLink);
-    return client
-        .sendAsync(
-            HttpRequest.newBuilder(URI.create(jobLink)).build(),
-            HttpResponse.BodyHandlers.ofString())
-        .thenApply(HttpResponse::body);
+    return CompletableFuture.runAsync(
+            () -> {
+              try {
+                semaphore.acquire();
+              } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .thenCompose(
+            ignored ->
+                client.sendAsync(
+                    HttpRequest.newBuilder(URI.create(jobLink)).build(),
+                    HttpResponse.BodyHandlers.ofString()))
+        .thenApply(HttpResponse::body)
+        .whenComplete((result, error) -> semaphore.release());
   }
 
   @Override

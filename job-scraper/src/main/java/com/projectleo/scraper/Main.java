@@ -28,7 +28,7 @@ public class Main {
       return;
     }
 
-    try (ExecutorService executor = Executors.newFixedThreadPool(10);
+    try (ExecutorService executor = Executors.newFixedThreadPool(20);
         Database database = new Database()) {
       Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdown));
 
