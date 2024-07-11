@@ -119,6 +119,7 @@ public class GenericScraper implements Scraper {
     return uniqueJobLinks;
   }
 
+  // TODO: Coalesce this method with the one in JobResult
   private byte[] generateJobLinkHash(String jobLink) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
