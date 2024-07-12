@@ -78,6 +78,12 @@
       <artifactId>milvus-sdk-java</artifactId>
       <version>2.4.1</version>
     </dependency>
+    <!-- SLF4J for logging (Milvus requires it in classpath and 1.7.x or earlier)-->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.30</version>
+    </dependency>
   </dependencies>
 
   <build>
