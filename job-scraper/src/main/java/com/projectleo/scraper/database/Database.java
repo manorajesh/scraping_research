@@ -1,5 +1,6 @@
 package com.projectleo.scraper.database;
 
+import com.alibaba.fastjson.JSONObject;
 import com.projectleo.scraper.scrapers.JobResult;
 import com.projectleo.scraper.util.PropertiesUtil;
 import io.milvus.v2.client.ConnectConfig;
@@ -11,7 +12,9 @@ import io.milvus.v2.service.collection.request.CreateCollectionReq;
 import io.milvus.v2.service.collection.request.GetLoadStateReq;
 import io.milvus.v2.service.collection.request.HasCollectionReq;
 import io.milvus.v2.service.collection.request.ReleaseCollectionReq;
+import io.milvus.v2.service.vector.request.InsertReq;
 import io.milvus.v2.service.vector.request.SearchReq;
+import io.milvus.v2.service.vector.response.InsertResp;
 import io.milvus.v2.service.vector.response.SearchResp;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,16 +32,19 @@ public class Database implements AutoCloseable {
   private final MilvusClientV2 client;
 
   public Database() {
+    logger.info("Initializing database connection.");
     ConnectConfig connectConfig = ConnectConfig.builder().uri(CLUSTER_ENDPOINT).build();
-
     client = new MilvusClientV2(connectConfig);
-
     createCollectionIfNotExists();
   }
 
   private void createCollectionIfNotExists() {
+    logger.info("Checking if collection {} exists.", COLLECTION_NAME);
     if (!client.hasCollection(HasCollectionReq.builder().collectionName(COLLECTION_NAME).build())) {
+      logger.info("Collection {} does not exist. Creating collection.", COLLECTION_NAME);
       createCollection();
+    } else {
+      logger.info("Collection {} already exists.", COLLECTION_NAME);
     }
   }
 
@@ -128,16 +134,35 @@ public class Database implements AutoCloseable {
         client.getLoadState(GetLoadStateReq.builder().collectionName(COLLECTION_NAME).build());
 
     if (res) {
-      logger.info("Collection created successfully");
+      logger.info("Collection {} created successfully.", COLLECTION_NAME);
     } else {
-      logger.error("Collection failed to be created");
+      logger.error("Collection {} failed to be created.", COLLECTION_NAME);
       throw new RuntimeException("Collection failed to be created");
     }
   }
 
-  public void writeToDatabase(List<JobResult> jobResults) {}
+  public void writeToDatabase(List<JobResult> jobResults) {
+    logger.info("Writing {} job results to the database.", jobResults.size());
+    List<JSONObject> data = jobResults.stream().map(JobResult::toJson).toList();
+    InsertReq insertReq = InsertReq.builder().collectionName(COLLECTION_NAME).data(data).build();
+    InsertResp insertResp = client.insert(insertReq);
+
+    Object response = JSONObject.toJSON(insertResp);
+    int insertCnt = (int) ((JSONObject) response).get("insertCnt");
+
+    if (insertCnt == jobResults.size()) {
+      logger.info("Inserted {} records into the database.", insertCnt);
+    } else {
+      logger.error(
+          "Failed to insert all records into the database. Inserted {} records of {}.",
+          insertCnt,
+          jobResults.size());
+      throw new RuntimeException("Failed to insert all records into the database");
+    }
+  }
 
   public boolean jobLinkExists(byte[] jobLinkHash) {
+    logger.info("Checking if job link with hash {} exists in the database.", jobLinkHash);
     List<Object> vectorList = new ArrayList<>();
     vectorList.add(jobLinkHash);
 
@@ -151,23 +176,25 @@ public class Database implements AutoCloseable {
 
     SearchResp searchResp = client.search(searchReq);
 
-    return !searchResp.getSearchResults().isEmpty();
+    boolean exists = !searchResp.getSearchResults().isEmpty();
+    logger.info("Job link hash {} existence check: {}", jobLinkHash, exists);
+    return exists;
   }
 
   @Override
   public void close() {
+    logger.info("Releasing collection {}.", COLLECTION_NAME);
     ReleaseCollectionReq releaseCollectionReq =
         ReleaseCollectionReq.builder().collectionName(COLLECTION_NAME).build();
-
     client.releaseCollection(releaseCollectionReq);
 
     boolean res =
         client.getLoadState(GetLoadStateReq.builder().collectionName(COLLECTION_NAME).build());
 
     if (!res) {
-      logger.info("Collection released successfully");
+      logger.info("Collection {} released successfully.", COLLECTION_NAME);
     } else {
-      logger.error("Collection failed to be released");
+      logger.error("Collection {} failed to be released.", COLLECTION_NAME);
       throw new RuntimeException("Collection failed to be released");
     }
   }
