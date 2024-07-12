@@ -1,201 +1,141 @@
 package com.projectleo.scraper.database;
 
-import com.alibaba.fastjson.JSONObject;
 import com.projectleo.scraper.scrapers.JobResult;
 import com.projectleo.scraper.util.PropertiesUtil;
-import io.milvus.v2.client.ConnectConfig;
-import io.milvus.v2.client.MilvusClientV2;
-import io.milvus.v2.common.DataType;
-import io.milvus.v2.common.IndexParam;
-import io.milvus.v2.service.collection.request.AddFieldReq;
-import io.milvus.v2.service.collection.request.CreateCollectionReq;
-import io.milvus.v2.service.collection.request.GetLoadStateReq;
-import io.milvus.v2.service.collection.request.HasCollectionReq;
-import io.milvus.v2.service.collection.request.ReleaseCollectionReq;
-import io.milvus.v2.service.vector.request.InsertReq;
-import io.milvus.v2.service.vector.request.SearchReq;
-import io.milvus.v2.service.vector.response.InsertResp;
-import io.milvus.v2.service.vector.response.SearchResp;
+import java.sql.*;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class Database implements AutoCloseable {
   private static final Logger logger = LogManager.getLogger(Database.class);
   private static final String COLLECTION_NAME = "job_results";
-  private static final String CLUSTER_ENDPOINT = PropertiesUtil.getProperty("milvus.endpoint");
-  private static final int HASH_LENGTH = 256; // 256 bits for SHA-256 hash
-  private static final int VECTOR_DIMENSION = 3072; // for OpenAI's text-embedding-3-large
-  private final MilvusClientV2 client;
+  private static final String DB_URL = PropertiesUtil.getProperty("db.url");
+  private static final String DB_USER = PropertiesUtil.getProperty("db.user");
+  private static final String DB_PASSWORD = PropertiesUtil.getProperty("db.password");
+  private Connection connection;
 
   public Database() {
     logger.info("Initializing database connection.");
-    ConnectConfig connectConfig = ConnectConfig.builder().uri(CLUSTER_ENDPOINT).build();
-    client = new MilvusClientV2(connectConfig);
-    createCollectionIfNotExists();
-  }
-
-  private void createCollectionIfNotExists() {
-    logger.info("Checking if collection {} exists.", COLLECTION_NAME);
-    if (!client.hasCollection(HasCollectionReq.builder().collectionName(COLLECTION_NAME).build())) {
-      logger.info("Collection {} does not exist. Creating collection.", COLLECTION_NAME);
-      createCollection();
-    } else {
-      logger.info("Collection {} already exists.", COLLECTION_NAME);
+    try {
+      connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+      createTableIfNotExists();
+    } catch (SQLException e) {
+      logger.error("Failed to initialize database connection.", e);
+      throw new RuntimeException(e);
     }
   }
 
-  private void createCollection() {
-    // 1. Create collection schema
-    CreateCollectionReq.CollectionSchema schema = client.createSchema();
-
-    // id
-    schema.addField(
-        AddFieldReq.builder()
-            .fieldName("id")
-            .dataType(DataType.Int64)
-            .isPrimaryKey(true)
-            .autoID(true)
-            .build());
-
-    // vector
-    schema.addField(
-        AddFieldReq.builder()
-            .fieldName("vector")
-            .dataType(DataType.FloatVector)
-            .dimension(VECTOR_DIMENSION) // 512 dimensions for 512-bit vectors
-            .build());
-
-    // jobLinkHash
-    schema.addField(
-        AddFieldReq.builder()
-            .fieldName("job_link_hash")
-            .dataType(DataType.BinaryVector)
-            .dimension(HASH_LENGTH) // 256 bits for SHA-256 hash
-            .build());
-
-    // timestamp
-    schema.addField(AddFieldReq.builder().fieldName("timestamp").dataType(DataType.Int64).build());
-
-    // company
-    schema.addField(AddFieldReq.builder().fieldName("company").dataType(DataType.String).build());
-
-    // jobTitle
-    schema.addField(AddFieldReq.builder().fieldName("job_title").dataType(DataType.String).build());
-
-    // industry
-    schema.addField(AddFieldReq.builder().fieldName("industry").dataType(DataType.String).build());
-
-    // responsibilities
-    schema.addField(
-        AddFieldReq.builder().fieldName("responsibilities").dataType(DataType.Array).build());
-
-    // qualifications
-    schema.addField(
-        AddFieldReq.builder().fieldName("qualifications").dataType(DataType.Array).build());
-
-    // skills
-    schema.addField(AddFieldReq.builder().fieldName("skills").dataType(DataType.Array).build());
-
-    // location
-    schema.addField(AddFieldReq.builder().fieldName("location").dataType(DataType.String).build());
-
-    // 2. Prepare index parameters
-    IndexParam indexParamForIdField =
-        IndexParam.builder().fieldName("id").indexType(IndexParam.IndexType.AUTOINDEX).build();
-
-    IndexParam indexParamForVectorField =
-        IndexParam.builder()
-            .fieldName("vector")
-            .indexType(IndexParam.IndexType.IVF_FLAT)
-            .metricType(IndexParam.MetricType.COSINE)
-            .extraParams(Map.of("nlist", 1024))
-            .build();
-
-    List<IndexParam> indexParams = new ArrayList<>();
-    indexParams.add(indexParamForIdField);
-    indexParams.add(indexParamForVectorField);
-
-    // 3 Create a collection with schema and index parameters
-    CreateCollectionReq customizedSetupReq1 =
-        CreateCollectionReq.builder()
-            .collectionName(COLLECTION_NAME)
-            .collectionSchema(schema)
-            .indexParams(indexParams)
-            .build();
-
-    client.createCollection(customizedSetupReq1);
-
-    // Check if the collection is created
-    boolean res =
-        client.getLoadState(GetLoadStateReq.builder().collectionName(COLLECTION_NAME).build());
-
-    if (res) {
-      logger.info("Collection {} created successfully.", COLLECTION_NAME);
-    } else {
-      logger.error("Collection {} failed to be created.", COLLECTION_NAME);
-      throw new RuntimeException("Collection failed to be created");
+  private void createTableIfNotExists() throws SQLException {
+    String createTableSQL =
+        "CREATE TABLE IF NOT EXISTS "
+            + COLLECTION_NAME
+            + " ("
+            + "id SERIAL PRIMARY KEY, "
+            + "vector VECTOR(3072), "
+            + "job_link_hash BYTEA, "
+            + "timestamp BIGINT, "
+            + "company TEXT, "
+            + "job_title TEXT, "
+            + "industry TEXT, "
+            + "responsibilities TEXT[], "
+            + "qualifications TEXT[], "
+            + "skills TEXT[], "
+            + "location TEXT"
+            + ")";
+    try (Statement stmt = connection.createStatement()) {
+      stmt.execute(createTableSQL);
+      logger.info("Table {} created or already exists.", COLLECTION_NAME);
     }
   }
 
   public void writeToDatabase(List<JobResult> jobResults) {
     logger.info("Writing {} job results to the database.", jobResults.size());
-    List<JSONObject> data = jobResults.stream().map(JobResult::toJson).toList();
-    InsertReq insertReq = InsertReq.builder().collectionName(COLLECTION_NAME).data(data).build();
-    InsertResp insertResp = client.insert(insertReq);
+    String insertSQL =
+        "INSERT INTO "
+            + COLLECTION_NAME
+            + " (vector, job_link_hash, timestamp, company, job_title, industry, responsibilities,"
+            + " qualifications, skills, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-    Object response = JSONObject.toJSON(insertResp);
-    int insertCnt = (int) ((JSONObject) response).get("insertCnt");
-
-    if (insertCnt == jobResults.size()) {
-      logger.info("Inserted {} records into the database.", insertCnt);
-    } else {
-      logger.error(
-          "Failed to insert all records into the database. Inserted {} records of {}.",
-          insertCnt,
-          jobResults.size());
-      throw new RuntimeException("Failed to insert all records into the database");
+    try (PreparedStatement pstmt = connection.prepareStatement(insertSQL)) {
+      for (JobResult jobResult : jobResults) {
+        pstmt.setObject(1, jobResult.getVector()); // Storing vector as is
+        pstmt.setBytes(2, jobResult.getJobLinkHash());
+        pstmt.setLong(3, jobResult.getTimestamp().toEpochSecond(ZoneOffset.UTC));
+        pstmt.setString(4, jobResult.getCompany());
+        pstmt.setString(5, jobResult.getJobTitle());
+        pstmt.setString(6, jobResult.getIndustry());
+        pstmt.setArray(
+            7,
+            connection.createArrayOf(
+                "TEXT", jobResult.getResponsibilities().toArray(new String[0])));
+        pstmt.setArray(
+            8,
+            connection.createArrayOf("TEXT", jobResult.getQualifications().toArray(new String[0])));
+        pstmt.setArray(
+            9, connection.createArrayOf("TEXT", jobResult.getSkills().toArray(new String[0])));
+        pstmt.setString(10, jobResult.getLocation());
+        pstmt.addBatch();
+      }
+      pstmt.executeBatch();
+      logger.info("Inserted {} records into the database.", jobResults.size());
+    } catch (SQLException e) {
+      logger.error("Failed to write job results to the database.", e);
+      throw new RuntimeException(e);
     }
   }
 
   public boolean jobLinkExists(byte[] jobLinkHash) {
-    logger.info("Checking if job link with hash {} exists in the database.", jobLinkHash);
-    List<Object> vectorList = new ArrayList<>();
-    vectorList.add(jobLinkHash);
+    logger.info("Checking if job link with hash exists in the database.");
+    String searchSQL = "SELECT 1 FROM " + COLLECTION_NAME + " WHERE job_link_hash = ?";
 
-    SearchReq searchReq =
-        SearchReq.builder()
-            .collectionName(COLLECTION_NAME)
-            .annsField("job_link_hash")
-            .topK(1)
-            .data(Collections.singletonList(vectorList))
-            .build();
+    try (PreparedStatement pstmt = connection.prepareStatement(searchSQL)) {
+      pstmt.setBytes(1, jobLinkHash);
+      try (ResultSet rs = pstmt.executeQuery()) {
+        boolean exists = rs.next();
+        logger.info("Job link hash existence check: {}", exists);
+        return exists;
+      }
+    } catch (SQLException e) {
+      logger.error("Failed to check job link existence in the database.", e);
+      throw new RuntimeException(e);
+    }
+  }
 
-    SearchResp searchResp = client.search(searchReq);
+  public List<Integer> searchByVector(float[] queryVector, int topK) {
+    logger.info("Searching for similar vectors in the database.");
+    String searchSQL = "SELECT id FROM " + COLLECTION_NAME + " ORDER BY vector <-> ? LIMIT ?";
 
-    boolean exists = !searchResp.getSearchResults().isEmpty();
-    logger.info("Job link hash {} existence check: {}", jobLinkHash, exists);
-    return exists;
+    try (PreparedStatement pstmt = connection.prepareStatement(searchSQL)) {
+      pstmt.setObject(1, queryVector); // Querying vector as is
+      pstmt.setInt(2, topK);
+      try (ResultSet rs = pstmt.executeQuery()) {
+        List<Integer> resultIds = new ArrayList<>();
+        while (rs.next()) {
+          resultIds.add(rs.getInt("id"));
+        }
+        logger.info("Found {} similar vectors.", resultIds.size());
+        return resultIds;
+      }
+    } catch (SQLException e) {
+      logger.error("Failed to search similar vectors in the database.", e);
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
   public void close() {
-    logger.info("Releasing collection {}.", COLLECTION_NAME);
-    ReleaseCollectionReq releaseCollectionReq =
-        ReleaseCollectionReq.builder().collectionName(COLLECTION_NAME).build();
-    client.releaseCollection(releaseCollectionReq);
-
-    boolean res =
-        client.getLoadState(GetLoadStateReq.builder().collectionName(COLLECTION_NAME).build());
-
-    if (!res) {
-      logger.info("Collection {} released successfully.", COLLECTION_NAME);
-    } else {
-      logger.error("Collection {} failed to be released.", COLLECTION_NAME);
-      throw new RuntimeException("Collection failed to be released");
+    logger.info("Closing database connection.");
+    if (connection != null) {
+      try {
+        connection.close();
+        logger.info("Database connection closed.");
+      } catch (SQLException e) {
+        logger.error("Failed to close database connection.", e);
+        throw new RuntimeException(e);
+      }
     }
   }
 }

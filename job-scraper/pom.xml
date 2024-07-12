@@ -60,30 +60,19 @@
       <artifactId>jsoup</artifactId>
       <version>1.17.2</version>
     </dependency>
-    <!-- MySQL for database -->
-    <dependency>
-      <groupId>com.mysql</groupId>
-      <artifactId>mysql-connector-j</artifactId>
-      <version>9.0.0</version>
-    </dependency>
     <!-- OkHttp for HTTP requests -->
     <dependency>
       <groupId>com.squareup.okhttp3</groupId>
       <artifactId>okhttp</artifactId>
       <version>4.12.0</version>
     </dependency>
-    <!-- Milvus for vector database -->
+    <!-- PostgreSQL for database -->
     <dependency>
-      <groupId>io.milvus</groupId>
-      <artifactId>milvus-sdk-java</artifactId>
-      <version>2.4.1</version>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.3</version>
     </dependency>
-    <!-- SLF4J for logging (Milvus requires it in classpath and 1.7.x or earlier)-->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>1.7.30</version>
-    </dependency>
+
   </dependencies>
 
   <build>

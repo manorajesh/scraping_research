@@ -1,6 +1,5 @@
 package com.projectleo.scraper.scrapers;
 
-import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +7,6 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -188,21 +186,6 @@ public class JobResult {
         formatAsBulletedList(skills),
         location,
         timestamp.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-  }
-
-  public JSONObject toJson() {
-    JSONObject jsonObject = new JSONObject();
-    jsonObject.put("vector", vector);
-    jsonObject.put("job_link_hash", jobLinkHash);
-    jsonObject.put("timestamp", timestamp.toEpochSecond(ZoneOffset.UTC));
-    jsonObject.put("company", company);
-    jsonObject.put("job_title", jobTitle);
-    jsonObject.put("industry", industry);
-    jsonObject.put("responsibilities", responsibilities);
-    jsonObject.put("qualifications", qualifications);
-    jsonObject.put("skills", skills);
-    jsonObject.put("location", location);
-    return jsonObject;
   }
 
   private String formatAsBulletedList(List<String> items) {
