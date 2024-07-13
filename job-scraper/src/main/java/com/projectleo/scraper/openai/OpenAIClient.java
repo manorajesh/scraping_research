@@ -17,7 +17,7 @@ public class OpenAIClient {
   private static final String API_KEY = PropertiesUtil.getProperty("openai.api.key");
   private static final double PROMPT_TOKEN_PRICE = 0.0000005;
   private static final double COMPLETION_TOKEN_PRICE = 0.0000015;
-  private static final int MAX_RETRIES = 3;
+  private static final int MAX_RETRIES = 30;
   private static final int RATE_LIMIT_MINIMUM_WAIT_TIME = 1000;
 
   private static double totalCost = 0.0;
@@ -122,6 +122,17 @@ public class OpenAIClient {
         logger.info("Retrying request...");
         return sendRequestWithRetry(request, retryCount + 1);
       } else {
+        if (response.body().contains("rate_limit_exceeded")) {
+          logger.error("Rate limit exceeded. Retrying in 5 seconds...");
+          try {
+            Thread.sleep(5000);
+            return sendRequestWithRetry(request, retryCount + 1);
+          } catch (InterruptedException ex) {
+            logger.error(
+                "Error handling OpenAI rate limit exceeded error: {}", ex.getMessage(), ex);
+            throw new RuntimeException("Error handling OpenAI rate limit exceeded error: " + ex);
+          }
+        }
         throw new RuntimeException("OpenAI API error: " + error);
       }
     } catch (Exception e) {
